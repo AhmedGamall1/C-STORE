@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router'
 import {
   AlertTriangle,
@@ -87,6 +87,11 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState('COD')
   const [notes, setNotes] = useState('')
 
+  // Idempotency-Key for this checkout, tied to the exact payload it was made for.
+  const idempotencyRef = useRef<{ key: string; fingerprint: string } | null>(
+    null
+  )
+
   // Initialize the selected address when the user's saved list arrives.
   useEffect(() => {
     if (!isAuthenticated) return
@@ -145,9 +150,6 @@ export default function CheckoutPage() {
   const back = () => setStep((s) => Math.max(0, s - 1))
 
   const placeOrder = async () => {
-    // ONE key per submit attempt. A retry of this same attempt reuses it
-    // (idempotent); a fresh attempt after a fix gets a brand-new key.
-    const idempotencyKey = crypto.randomUUID()
     setIsPlacing(true)
 
     const items = cart.items.map((i) => ({
@@ -177,6 +179,14 @@ export default function CheckoutPage() {
       }
     }
 
+    // Same payload = a retry of the same order, so reuse its key (the server
+    // replays the first response). Changed payload = a new order = a new key.
+    const fingerprint = JSON.stringify(payload)
+    if (idempotencyRef.current?.fingerprint !== fingerprint) {
+      idempotencyRef.current = { key: crypto.randomUUID(), fingerprint }
+    }
+    const idempotencyKey = idempotencyRef.current.key
+
     // Snapshot product imagery / names from the cart so the success page
     // can render real images. The order response only carries the OrderItem
     // snapshot fields (color, size, price) — no product join.
@@ -189,6 +199,7 @@ export default function CheckoutPage() {
 
     try {
       const data = await createOrder.mutateAsync({ payload, idempotencyKey })
+      idempotencyRef.current = null // order placed; the next checkout gets a fresh key
       // Works for both COD (order only) and Paymob (order + iframeUrl); a
       // replayed Paymob response still carries a valid iframeUrl.
       navigate(`/order/success/${data.order.id}`, {
