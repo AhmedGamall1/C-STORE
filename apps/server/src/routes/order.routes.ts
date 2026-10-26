@@ -6,6 +6,7 @@ import {
   getMyOrders,
   getOrderById,
   getOrderByIdAdmin,
+  getPaymentStatus,
   updateOrderStatus,
 } from '../controllers/order.controller.js'
 import {
@@ -34,6 +35,13 @@ const validateCreateOrder: RequestHandler = (req, res, next) => {
 }
 
 router.post('/', optionalAuth, validateCreateOrder, idempotency, createOrder)
+
+// Public on purpose: the payment result page polls it, guests included.
+router.get(
+  '/:id/payment-status',
+  validate({ params: idParamSchema }),
+  getPaymentStatus
+)
 
 router.use(protect)
 

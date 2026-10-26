@@ -20,37 +20,43 @@ export const createOrderUserBodySchema = z.object({
     .uuid('addressId must be a valid id'),
 })
 
-// Guests send inline contact + address. email is optional (some prefer phone-only).
-export const createOrderGuestBodySchema = z.object({
-  ...baseFields,
-  guest: z.object({
-    name: z
-      .string({ message: 'Guest contact info (name, phone) is required' })
-      .trim()
-      .min(1, 'Guest contact info (name, phone) is required'),
-    phone: z
-      .string({ message: 'Guest contact info (name, phone) is required' })
-      .trim()
-      .min(1, 'Guest contact info (name, phone) is required'),
-    email: z.string().email().optional(),
-  }),
-  shippingAddress: z.object({
-    street: z
-      .string({
-        message: 'Shipping address (street, city, governorate) is required',
-      })
-      .trim()
-      .min(1, 'Shipping address (street, city, governorate) is required'),
-    city: z
-      .string()
-      .trim()
-      .min(1, 'Shipping address (street, city, governorate) is required'),
-    governorate: z
-      .string()
-      .trim()
-      .min(1, 'Shipping address (street, city, governorate) is required'),
-  }),
-})
+// Guests send inline contact + address. email is optional (some prefer phone-only),
+// except for card payments: Paymob refuses a payment without one.
+export const createOrderGuestBodySchema = z
+  .object({
+    ...baseFields,
+    guest: z.object({
+      name: z
+        .string({ message: 'Guest contact info (name, phone) is required' })
+        .trim()
+        .min(1, 'Guest contact info (name, phone) is required'),
+      phone: z
+        .string({ message: 'Guest contact info (name, phone) is required' })
+        .trim()
+        .min(1, 'Guest contact info (name, phone) is required'),
+      email: z.string().email().optional(),
+    }),
+    shippingAddress: z.object({
+      street: z
+        .string({
+          message: 'Shipping address (street, city, governorate) is required',
+        })
+        .trim()
+        .min(1, 'Shipping address (street, city, governorate) is required'),
+      city: z
+        .string()
+        .trim()
+        .min(1, 'Shipping address (street, city, governorate) is required'),
+      governorate: z
+        .string()
+        .trim()
+        .min(1, 'Shipping address (street, city, governorate) is required'),
+    }),
+  })
+  .refine(
+    (body) => body.paymentMethod !== 'PAYMOB' || Boolean(body.guest.email),
+    { message: 'Email is required to pay by card', path: ['guest', 'email'] }
+  )
 
 const orderStatusValues = [
   'PENDING',

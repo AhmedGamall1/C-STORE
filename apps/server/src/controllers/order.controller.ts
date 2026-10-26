@@ -12,10 +12,17 @@ export const createOrder = async (req: Request, res: Response) => {
     return
   }
 
-  const { iframeUrl, paymobOrderId } = await initiatePaymobPayment(
-    order,
-    req.user ?? null
-  )
+  let payment: Awaited<ReturnType<typeof initiatePaymobPayment>>
+  try {
+    payment = await initiatePaymobPayment(order, req.user ?? null)
+  } catch (err) {
+    // Compensating action: Paymob couldn't start, so undo the order now instead
+    // of holding its stock for 30 minutes. The customer still gets the error.
+    await orderService.releaseUnpaidOrder(order.id)
+    throw err
+  }
+
+  const { iframeUrl, paymobOrderId } = payment
   await orderService.savePaymobOrderId(order.id, paymobOrderId)
 
   res.status(201).json({
@@ -32,13 +39,25 @@ export const getMyOrders = async (req: Request, res: Response) => {
 
 // GET /api/orders/:id
 export const getOrderById = async (req: Request, res: Response) => {
-  const order = await orderService.getOrderById(req.user!.id, req.params.id as string)
+  const order = await orderService.getOrderById(
+    req.user!.id,
+    req.params.id as string
+  )
+  res.json({ status: 'success', data: { order } })
+}
+
+// GET /api/orders/:id/payment-status — public (guests too), status fields only
+export const getPaymentStatus = async (req: Request, res: Response) => {
+  const order = await orderService.getPaymentStatus(req.params.id as string)
   res.json({ status: 'success', data: { order } })
 }
 
 // PATCH /api/orders/:id/cancel
 export const cancelOrder = async (req: Request, res: Response) => {
-  const order = await orderService.cancelOrder(req.user!.id, req.params.id as string)
+  const order = await orderService.cancelOrder(
+    req.user!.id,
+    req.params.id as string
+  )
   res.json({ status: 'success', data: { order } })
 }
 

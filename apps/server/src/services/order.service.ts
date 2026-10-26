@@ -21,8 +21,7 @@ type OrderSize = Awaited<
 type CreateOrderBody = CreateOrderUserInput | CreateOrderGuestInput
 
 // Size price overrides the product price when set.
-const unitPriceOf = (size: OrderSize) =>
-  size.price ?? size.color.product.price
+const unitPriceOf = (size: OrderSize) => size.price ?? size.color.product.price
 
 // Ensure the size + its color + its product are all active and in stock for `qty`.
 const assertSizeAvailable = (size: OrderSize | undefined, qty: number) => {
@@ -64,7 +63,10 @@ export const createOrder = async (
 
   if (user) {
     const { addressId: bodyAddressId } = body as CreateOrderUserInput
-    const savedAddress = await addressRepo.findByIdForUser(bodyAddressId, user.id)
+    const savedAddress = await addressRepo.findByIdForUser(
+      bodyAddressId,
+      user.id
+    )
 
     if (!savedAddress || savedAddress.userId !== user.id) {
       throw new AppError('Address not found', 404)
@@ -190,6 +192,13 @@ export const getOrderById = async (userId: string, orderId: string) => {
   return order
 }
 
+// No auth: the order id is an unguessable UUID and only the status is returned.
+export const getPaymentStatus = async (orderId: string) => {
+  const order = await orderRepo.findPaymentStatus(orderId)
+  if (!order) throw new AppError('Order not found', 404)
+  return order
+}
+
 // Cancel a pending order and restore stock on the size rows.
 export const cancelOrder = async (userId: string, orderId: string) => {
   const order = await orderRepo.findByIdForUser(orderId, userId)
@@ -198,13 +207,20 @@ export const cancelOrder = async (userId: string, orderId: string) => {
     throw new AppError('Order not found', 404)
   }
   if (order.status !== 'PENDING') {
-    throw new AppError(`Cannot cancel an order with status: ${order.status}`, 400)
+    throw new AppError(
+      `Cannot cancel an order with status: ${order.status}`,
+      400
+    )
   }
 
   return withTransaction(async (tx) => {
     for (const item of order.items) {
       if (item.productSizeId) {
-        await orderRepo.incrementSizeStock(item.productSizeId, item.quantity, tx)
+        await orderRepo.incrementSizeStock(
+          item.productSizeId,
+          item.quantity,
+          tx
+        )
       }
     }
 
@@ -218,6 +234,27 @@ export const cancelOrder = async (userId: string, orderId: string) => {
 
 export const savePaymobOrderId = (orderId: string, paymobOrderId: string) =>
   orderRepo.savePaymobOrderId(orderId, paymobOrderId)
+
+// Cancel an unpaid order and put its stock back. Safe to call twice: the
+// cancel is conditional, so only the first call restores stock.
+export const releaseUnpaidOrder = (orderId: string) =>
+  withTransaction(async (tx) => {
+    const order = await orderRepo.findByIdWithItems(orderId, tx)
+    if (!order) return
+
+    const { count } = await orderRepo.markCancelledIfActive(orderId, tx)
+    if (count === 0) return // already cancelled, or paid
+
+    for (const item of order.items) {
+      if (item.productSizeId) {
+        await orderRepo.incrementSizeStock(
+          item.productSizeId,
+          item.quantity,
+          tx
+        )
+      }
+    }
+  })
 
 ///////////// Admin /////////////////
 

@@ -2,10 +2,39 @@ import crypto from 'crypto'
 import type { User } from '@prisma/client'
 import AppError from '../utils/AppError.js'
 import { env } from '../config/env.js'
-import { withTransaction } from '../repositories/transaction.js'
 import * as orderRepo from '../repositories/order.repository.js'
+import { releaseUnpaidOrder } from './order.service.js'
 
 const PAYMOB_API_URL = 'https://accept.paymob.com/api'
+
+// The payment link must die BEFORE the stock reservation does, or a customer
+// could pay for an order the expiry job has already cancelled.
+const PAYMENT_LINK_BUFFER_SECONDS = 120
+
+// The 20 fields Paymob signs, in Paymob's order, as the browser redirect sends
+// them: flat query keys ("order", "source_data.pan").
+const REDIRECT_HMAC_KEYS = [
+  'amount_cents',
+  'created_at',
+  'currency',
+  'error_occured',
+  'has_parent_transaction',
+  'id',
+  'integration_id',
+  'is_3d_secure',
+  'is_auth',
+  'is_capture',
+  'is_refunded',
+  'is_standalone_payment',
+  'is_voided',
+  'order',
+  'owner',
+  'pending',
+  'source_data.pan',
+  'source_data.sub_type',
+  'source_data.type',
+  'success',
+]
 
 type OrderForPayment = NonNullable<
   Awaited<ReturnType<typeof orderRepo.findByIdWithOrderInclude>>
@@ -75,7 +104,8 @@ const getPaymentKey = async (
   authToken: string,
   paymobOrderId: number,
   amountCents: number,
-  billing: BillingData
+  billing: BillingData,
+  expiresInSeconds: number
 ): Promise<string> => {
   const res = await fetch(`${PAYMOB_API_URL}/acceptance/payment_keys`, {
     method: 'POST',
@@ -83,7 +113,7 @@ const getPaymentKey = async (
     body: JSON.stringify({
       auth_token: authToken,
       amount_cents: amountCents,
-      expiration: 3600,
+      expiration: expiresInSeconds,
       order_id: paymobOrderId,
       billing_data: {
         first_name: billing.firstName,
@@ -147,18 +177,38 @@ export const initiatePaymobPayment = async (
   // Paymob works in cents (EGP × 100) and needs an integer.
   const amountCents = Math.round(Number(order.total) * 100)
 
+  const secondsLeft = order.reservedUntil
+    ? Math.floor((order.reservedUntil.getTime() - Date.now()) / 1000) -
+      PAYMENT_LINK_BUFFER_SECONDS
+    : 0
+  if (secondsLeft <= 0) {
+    throw new AppError('The payment window for this order has expired', 400)
+  }
+
   const authToken = await getAuthToken()
   const paymobOrderId = await registerOrder(authToken, amountCents, order.id)
   const paymentKey = await getPaymentKey(
     authToken,
     paymobOrderId,
     amountCents,
-    buildBillingData(order, user)
+    buildBillingData(order, user),
+    secondsLeft
   )
 
   const iframeUrl = `https://accept.paymob.com/api/acceptance/iframes/${env.PAYMOB_IFRAME_ID}?payment_token=${paymentKey}`
 
   return { iframeUrl, paymobOrderId: String(paymobOrderId) }
+}
+
+const signHmac = (data: string) =>
+  crypto.createHmac('sha512', env.PAYMOB_HMAC_SECRET).update(data).digest('hex')
+
+// Constant-time compare, so response timing can't leak how much of a forged
+// HMAC was right.
+const isSameHmac = (computed: string, received: string | undefined) => {
+  const a = Buffer.from(computed, 'hex')
+  const b = Buffer.from(received ?? '', 'hex')
+  return a.length === b.length && crypto.timingSafeEqual(a, b)
 }
 
 export const verifyPaymobHmac = (
@@ -190,12 +240,17 @@ export const verifyPaymobHmac = (
     obj.success,
   ].join('')
 
-  const computed = crypto
-    .createHmac('sha512', env.PAYMOB_HMAC_SECRET)
-    .update(concatenated)
-    .digest('hex')
+  return isSameHmac(signHmac(concatenated), receivedHmac)
+}
 
-  return computed === receivedHmac
+// Browser redirect after payment: same 20 fields, flat in the query string.
+export const verifyPaymobRedirectHmac = (
+  query: Record<string, string | undefined>
+): boolean => {
+  const concatenated = REDIRECT_HMAC_KEYS.map((key) => query[key] ?? '').join(
+    ''
+  )
+  return isSameHmac(signHmac(concatenated), query.hmac)
 }
 
 export const handleWebhookTransaction = async (body: PaymobWebhookBody) => {
@@ -213,17 +268,6 @@ export const handleWebhookTransaction = async (body: PaymobWebhookBody) => {
     return
   }
 
-  await withTransaction(async (tx) => {
-    const { count } = await orderRepo.markCancelledIfActive(order.id, tx)
-    if (count === 0) return // a duplicate webhook already handled this
-    for (const item of order.items) {
-      if (item.productSizeId) {
-        await orderRepo.incrementSizeStock(
-          item.productSizeId,
-          item.quantity,
-          tx
-        )
-      }
-    }
-  })
+  // Declined: cancel + restock (a duplicate webhook is a no-op).
+  await releaseUnpaidOrder(order.id)
 }

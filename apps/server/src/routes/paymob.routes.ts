@@ -1,5 +1,8 @@
 import { Router } from 'express'
-import { paymobWebhook } from '../controllers/paymob.controller.js'
+import {
+  paymobReturn,
+  paymobWebhook,
+} from '../controllers/paymob.controller.js'
 import { validate } from '../middlewares/validate.middleware.js'
 import {
   paymobWebhookBodySchema,
@@ -16,5 +19,8 @@ router.post(
   }),
   paymobWebhook
 )
+
+// Paymob's "Transaction response callback" (browser redirect after paying).
+router.get('/return', paymobReturn)
 
 export default router

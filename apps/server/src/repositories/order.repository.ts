@@ -58,6 +58,19 @@ export const findByIdAdmin = (orderId: string) =>
     include: adminOrderInclude,
   })
 
+// Public payment status: only what a result page needs, no personal data.
+export const findPaymentStatus = (orderId: string) =>
+  prisma.order.findUnique({
+    where: { id: orderId },
+    select: {
+      id: true,
+      orderNumber: true,
+      status: true,
+      paymentStatus: true,
+      paymentMethod: true,
+    },
+  })
+
 // Cancel/status flows need items but not the heavy admin shape.
 export const findByIdWithItems = (orderId: string, tx: DbClient = prisma) =>
   tx.order.findUnique({
