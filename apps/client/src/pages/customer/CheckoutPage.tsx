@@ -102,11 +102,6 @@ export default function CheckoutPage() {
     })
   }, [isAuthenticated, addresses])
 
-  // Empty cart? Bounce.
-  if (!cartLoading && cart.items.length === 0) {
-    return <Navigate to="/cart" replace />
-  }
-
   // Resolve the active governorate (drives the shipping rate)
   const activeGovernorate = isAuthenticated
     ? addresses?.find((a) => a.id === selectedAddressId)?.governorate
@@ -146,7 +141,13 @@ export default function CheckoutPage() {
     return true
   }, [step, detailsValid, paymentMethod, blockedLines.length])
 
-  const next = () => setStep((s) => Math.min(STEPS.length - 1, s + 1))
+  // Empty cart? Bounce. Must stay below every hook: React needs the same
+  // hooks, in the same order, on every render.
+  if (!cartLoading && cart.items.length === 0) {
+    return <Navigate to="/cart" replace />
+  }
+
+  const next =() => setStep((s) => Math.min(STEPS.length - 1, s + 1))
   const back = () => setStep((s) => Math.max(0, s - 1))
 
   const placeOrder = async () => {
