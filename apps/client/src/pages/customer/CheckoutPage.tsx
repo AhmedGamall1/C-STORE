@@ -51,7 +51,10 @@ import { cn, formatEGP } from '@/lib/utils'
 const STEPS = ['Details', 'Payment', 'Review']
 
 const govSlug = (name) =>
-  name?.trim().toLowerCase().replace(/[\s-]+/g, '_') ?? ''
+  name
+    ?.trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_') ?? ''
 
 export default function CheckoutPage() {
   const navigate = useNavigate()
@@ -122,32 +125,57 @@ export default function CheckoutPage() {
 
   const phoneValid = !isAuthenticated && isValidEgyptPhone(guest.phone)
 
+  // Paymob refuses a card payment without an email; guests may skip it.
+  const cardNeedsEmail = !isAuthenticated && !guest.email.trim()
+
   const detailsValid = isAuthenticated
     ? Boolean(selectedAddressId && shippingCost != null)
     : Boolean(
         guest.firstName.trim() &&
-          guest.lastName.trim() &&
-          phoneValid &&
-          guestAddress.street.trim() &&
-          guestAddress.city.trim() &&
-          guestAddress.governorate &&
-          shippingCost != null
+        guest.lastName.trim() &&
+        phoneValid &&
+        guestAddress.street.trim() &&
+        guestAddress.city.trim() &&
+        guestAddress.governorate &&
+        shippingCost != null
       )
 
   const stepValid = useMemo(() => {
     if (blockedLines.length > 0) return false
     if (step === 0) return detailsValid
-    if (step === 1) return Boolean(paymentMethod)
+    if (step === 1) {
+      return (
+        Boolean(paymentMethod) &&
+        !(paymentMethod === 'PAYMOB' && cardNeedsEmail)
+      )
+    }
     return true
-  }, [step, detailsValid, paymentMethod, blockedLines.length])
+  }, [step, detailsValid, paymentMethod, cardNeedsEmail, blockedLines.length])
 
-  // Empty cart? Bounce. Must stay below every hook: React needs the same
-  // hooks, in the same order, on every render.
+  // Early returns must stay below every hook: React needs the same hooks, in
+  // the same order, on every render.
+
+  // A placed order clears the cart while the browser is still leaving (Paymob
+  // page or success page). Show a holding screen, not "your cart is empty".
+  if (isPlacing && cart.items.length === 0) {
+    return (
+      <div className="container-page flex flex-col items-center justify-center gap-4 py-40 text-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <p className="text-muted-foreground">
+          {paymentMethod === 'PAYMOB'
+            ? 'Taking you to the secure payment page…'
+            : 'Placing your order…'}
+        </p>
+      </div>
+    )
+  }
+
+  // Empty cart? Bounce.
   if (!cartLoading && cart.items.length === 0) {
     return <Navigate to="/cart" replace />
   }
 
-  const next =() => setStep((s) => Math.min(STEPS.length - 1, s + 1))
+  const next = () => setStep((s) => Math.min(STEPS.length - 1, s + 1))
   const back = () => setStep((s) => Math.max(0, s - 1))
 
   const placeOrder = async () => {
@@ -201,8 +229,15 @@ export default function CheckoutPage() {
     try {
       const data = await createOrder.mutateAsync({ payload, idempotencyKey })
       idempotencyRef.current = null // order placed; the next checkout gets a fresh key
-      // Works for both COD (order only) and Paymob (order + iframeUrl); a
-      // replayed Paymob response still carries a valid iframeUrl.
+
+      // Card: leave for Paymob's payment page (a replayed response still carries
+      // a valid iframeUrl). The webhook marks the order paid, and Paymob sends
+      // the customer back to /payment/result/:id. The button stays locked.
+      if (data.iframeUrl) {
+        window.location.assign(data.iframeUrl)
+        return
+      }
+
       navigate(`/order/success/${data.order.id}`, {
         replace: true,
         state: { order: data.order, lineSnapshots },
@@ -304,7 +339,11 @@ export default function CheckoutPage() {
           ) : null}
 
           {step === 1 ? (
-            <PaymentStep value={paymentMethod} onChange={setPaymentMethod} />
+            <PaymentStep
+              value={paymentMethod}
+              onChange={setPaymentMethod}
+              cardNeedsEmail={cardNeedsEmail}
+            />
           ) : null}
 
           {step === 2 ? (
@@ -453,9 +492,7 @@ function UserDetailsStep({
       <ShippingHint
         cost={shippingCost}
         missing={shippingMissing}
-        govLabel={
-          addresses.find((a) => a.id === selectedId)?.governorate
-        }
+        govLabel={addresses.find((a) => a.id === selectedId)?.governorate}
       />
     </section>
   )
@@ -491,9 +528,7 @@ function GuestDetailsStep({
               required
               autoComplete="given-name"
               value={guest.firstName}
-              onChange={(e) =>
-                onGuest({ ...guest, firstName: e.target.value })
-              }
+              onChange={(e) => onGuest({ ...guest, firstName: e.target.value })}
             />
           </div>
           <div className="grid gap-2">
@@ -503,9 +538,7 @@ function GuestDetailsStep({
               required
               autoComplete="family-name"
               value={guest.lastName}
-              onChange={(e) =>
-                onGuest({ ...guest, lastName: e.target.value })
-              }
+              onChange={(e) => onGuest({ ...guest, lastName: e.target.value })}
             />
           </div>
           <div className="grid gap-2 sm:col-span-2">
@@ -586,9 +619,7 @@ function GuestDetailsStep({
               <Label htmlFor="g-gov">Governorate</Label>
               <Select
                 value={address.governorate}
-                onValueChange={(v) =>
-                  onAddress({ ...address, governorate: v })
-                }
+                onValueChange={(v) => onAddress({ ...address, governorate: v })}
               >
                 <SelectTrigger id="g-gov">
                   <SelectValue placeholder="Select" />
@@ -641,7 +672,7 @@ function ShippingHint({ cost, missing, govLabel }) {
 }
 
 /* ---------- Step 2 — Payment ---------- */
-function PaymentStep({ value, onChange }) {
+function PaymentStep({ value, onChange, cardNeedsEmail }) {
   return (
     <section>
       <Header
@@ -664,8 +695,12 @@ function PaymentStep({ value, onChange }) {
           onClick={onChange}
           icon={CreditCard}
           title="Pay with Paymob"
-          desc="Visa, Mastercard, Meeza — secure online payment."
-          comingSoon
+          desc={
+            cardNeedsEmail
+              ? 'Add your email in Details to pay by card.'
+              : 'Visa, Mastercard, Meeza — secure online payment.'
+          }
+          disabled={cardNeedsEmail}
         />
       </div>
     </section>
@@ -680,9 +715,10 @@ function PaymentOption({
   title,
   desc,
   comingSoon,
+  disabled: unavailable,
 }) {
   const active = current === value
-  const disabled = Boolean(comingSoon)
+  const disabled = Boolean(comingSoon || unavailable)
   return (
     <button
       type="button"

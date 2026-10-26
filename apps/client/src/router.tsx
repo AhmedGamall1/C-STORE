@@ -12,6 +12,7 @@ import ProductDetailPage from '@/pages/customer/ProductDetailPage'
 import CartPage from '@/pages/customer/CartPage'
 import CheckoutPage from '@/pages/customer/CheckoutPage'
 import OrderConfirmationPage from '@/pages/customer/OrderConfirmationPage'
+import PaymentResultPage from '@/pages/customer/PaymentResultPage'
 import LoginPage from '@/pages/customer/LoginPage'
 import RegisterPage from '@/pages/customer/RegisterPage'
 import VerifyEmailPage from '@/pages/customer/VerifyEmailPage'
@@ -52,6 +53,8 @@ export const router = createBrowserRouter([
       // Guests can check out — order ownership is enforced server-side.
       { path: 'checkout', element: <CheckoutPage /> },
       { path: 'order/success/:id', element: <OrderConfirmationPage /> },
+      // Paymob sends card customers here (via /api/paymob/return) after paying.
+      { path: 'payment/result/:id', element: <PaymentResultPage /> },
 
       // Auth-required under the same customer layout
       {

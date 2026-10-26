@@ -8,7 +8,9 @@ import {
   getMyOrders,
   getMyOrder,
   cancelMyOrder,
+  getPaymentStatus,
   type CreateOrderPayload,
+  type PaymentStatusResult,
 } from '@/api/orders'
 import { clearGuestCart } from '@/lib/guestCart'
 import type { ListParams, OrderStatus } from '@/types/api'
@@ -88,6 +90,24 @@ export function useMyOrder(id?: string) {
     queryKey: ['order', 'mine', id],
     queryFn: () => getMyOrder(id!),
     enabled: Boolean(id),
+  })
+}
+
+const PAYMENT_POLL_MS = 2_000
+
+// Settled = the webhook already decided: paid, or cancelled (declined/expired).
+export const isPaymentSettled = (order?: PaymentStatusResult) =>
+  order?.paymentStatus === 'PAID' || order?.status === 'CANCELLED'
+
+// Payment result page: ask every 2s until the webhook settles the order.
+// `poll` lets the page stop asking after a timeout.
+export function usePaymentStatus(id?: string, poll = true) {
+  return useQuery({
+    queryKey: ['order', 'payment-status', id],
+    queryFn: () => getPaymentStatus(id!),
+    enabled: Boolean(id),
+    refetchInterval: (query) =>
+      poll && !isPaymentSettled(query.state.data) ? PAYMENT_POLL_MS : false,
   })
 }
 

@@ -22,6 +22,21 @@ interface CreateOrderResult {
   iframeUrl?: string
 }
 
+export type PaymentStatusResult = Pick<
+  Order,
+  'id' | 'orderNumber' | 'status' | 'paymentStatus' | 'paymentMethod'
+>
+
+// GET /api/orders/:id/payment-status — public (guests too); status fields only.
+export async function getPaymentStatus(
+  id: string
+): Promise<PaymentStatusResult> {
+  const res = await api.get<{ data: { order: PaymentStatusResult } }>(
+    `/orders/${id}/payment-status`
+  )
+  return res.data.order
+}
+
 // POST /api/orders — works for both authenticated users (addressId) and
 // guests (guest + shippingAddress). Returns the created order, plus an
 // iframeUrl when paymentMethod=PAYMOB.
