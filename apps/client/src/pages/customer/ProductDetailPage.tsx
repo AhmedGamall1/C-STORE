@@ -1,7 +1,6 @@
 import { useParams, useSearchParams, Link } from 'react-router'
 import { useEffect, useMemo, useState } from 'react'
 import {
-  Heart,
   ShieldCheck,
   Truck,
   RotateCcw,
@@ -324,9 +323,6 @@ export default function ProductDetailPage() {
                           : 'Add to Cart'}
                   </>
                 )}
-              </Button>
-              <Button size="xl" variant="outline" aria-label="Add to wishlist">
-                <Heart className="h-4 w-4" />
               </Button>
             </div>
 

@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link, NavLink } from 'react-router'
 import {
-  Heart,
   Menu,
   Search,
   ShoppingBag,
@@ -94,15 +93,6 @@ export function Navbar() {
           <Link to={accountHref} aria-label="Account">
             <Button variant="ghost" size="icon">
               <AccountIcon className="h-5 w-5" />
-            </Button>
-          </Link>
-          <Link
-            to="/account"
-            aria-label="Wishlist"
-            className="hidden sm:inline-flex"
-          >
-            <Button variant="ghost" size="icon">
-              <Heart className="h-5 w-5" />
             </Button>
           </Link>
           <CartDrawer>

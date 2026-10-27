@@ -1,5 +1,4 @@
 import { Link, useNavigate } from 'react-router'
-import { Heart } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn, formatEGP } from '@/lib/utils'
@@ -72,20 +71,6 @@ export function ProductCard({ product, color, className }) {
             <Badge variant="destructive">-{discountPct}%</Badge>
           ) : null}
         </div>
-
-        {/* wishlist */}
-        <Button
-          variant="secondary"
-          size="icon"
-          className="absolute right-3 top-3 h-8 w-8 rounded-full opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
-          aria-label="Add to wishlist"
-          onClick={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-          }}
-        >
-          <Heart className="h-4 w-4" />
-        </Button>
 
         {/* Add to cart overlay */}
         <div className="pointer-events-none absolute inset-x-3 bottom-3 translate-y-2 opacity-0 transition-all duration-300 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
