@@ -19,7 +19,7 @@ import { Badge } from '@/components/ui/badge'
 import { ProductGrid } from '@/components/product/ProductGrid'
 import { ProductFilters } from '@/components/product/ProductFilters'
 import { Pagination } from '@/components/product/Pagination'
-import { useProducts } from '@/hooks/useProducts'
+import { useCategoryCounts, useProducts } from '@/hooks/useProducts'
 import { useCategories } from '@/hooks/useCategories'
 import { ErrorView } from '@/components/common/ErrorView'
 
@@ -69,19 +69,43 @@ export default function ShopPage() {
 
   // Helper: update a searchParam, reset page to 1 on filter change
   const setFilter = (key, value) => {
-    setSearchParams((prev) => {
-      // eslint-disable-next-line no-undef
-      const next = new URLSearchParams(prev)
-      if (value) {
-        next.set(key, value)
-      } else {
-        next.delete(key)
-      }
-      // Any filter change resets to page 1 (except page itself)
-      if (key !== 'page') next.delete('page')
-      return next
-    })
+    setSearchParams(
+      (prev) => {
+        // eslint-disable-next-line no-undef
+        const next = new URLSearchParams(prev)
+        if (value) {
+          next.set(key, value)
+        } else {
+          next.delete(key)
+        }
+        // Any filter change resets to page 1 (except page itself)
+        if (key !== 'page') next.delete('page')
+        return next
+      },
+      // Filters keep the shopper where they are; a new page starts at the top.
+      { preventScrollReset: key !== 'page' }
+    )
   }
+
+  // Drop every filter (and the page) but keep the chosen sort order.
+  const clearFilters = () => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams()
+        if (prev.get('sort')) next.set('sort', prev.get('sort'))
+        return next
+      },
+      { preventScrollReset: true }
+    )
+  }
+
+  // Category counts follow the other filters (price, search), not the category.
+  const countFilters = {
+    ...(minPrice && { minPrice }),
+    ...(maxPrice && { maxPrice }),
+    ...(search && { search }),
+  }
+  const { data: categoryCounts } = useCategoryCounts(countFilters)
 
   // Find category name for the header
   const activeCategoryName = category
@@ -118,7 +142,10 @@ export default function ShopPage() {
           {/* Desktop filters */}
           <div className="hidden lg:block">
             <ProductFilters
+              // Remount when the URL price changes, so the inputs reset too.
+              key={`${minPrice}-${maxPrice}`}
               categories={categories}
+              counts={categoryCounts}
               activeCategory={category}
               minPrice={minPrice}
               maxPrice={maxPrice}
@@ -145,7 +172,9 @@ export default function ShopPage() {
                     </SheetHeader>
                     <div className="mt-6">
                       <ProductFilters
+                        key={`${minPrice}-${maxPrice}`}
                         categories={categories}
+                        counts={categoryCounts}
                         activeCategory={category}
                         minPrice={minPrice}
                         maxPrice={maxPrice}
@@ -161,6 +190,7 @@ export default function ShopPage() {
                   maxPrice={maxPrice}
                   search={search}
                   onRemove={setFilter}
+                  onClearAll={clearFilters}
                 />
               </div>
 
@@ -210,7 +240,7 @@ export default function ShopPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setSearchParams({})}
+                  onClick={clearFilters}
                 >
                   Clear all filters
                 </Button>
@@ -235,7 +265,14 @@ export default function ShopPage() {
 }
 
 /** Shows active filter chips with remove buttons */
-function ActiveFilters({ category, minPrice, maxPrice, search, onRemove }) {
+function ActiveFilters({
+  category,
+  minPrice,
+  maxPrice,
+  search,
+  onRemove,
+  onClearAll,
+}) {
   const chips = []
   if (category) chips.push({ label: category, key: 'category' })
   if (minPrice) chips.push({ label: `Min: ${minPrice} EGP`, key: 'minPrice' })
@@ -263,7 +300,7 @@ function ActiveFilters({ category, minPrice, maxPrice, search, onRemove }) {
       ))}
       <button
         className="text-xs font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
-        onClick={() => onRemove('_clearAll', '')}
+        onClick={onClearAll}
       >
         Clear all
       </button>

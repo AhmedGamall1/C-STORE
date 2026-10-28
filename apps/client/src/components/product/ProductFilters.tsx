@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button'
 
 export function ProductFilters({
   categories = [],
+  // { counts: { [slug]: n }, total } for the current price/search filters
+  counts,
   activeCategory = '',
   minPrice = '',
   maxPrice = '',
@@ -43,9 +45,9 @@ export function ProductFilters({
                 }
               >
                 {c.name}
-                {c._count?.products != null ? (
+                {counts ? (
                   <span className="text-xs tabular opacity-60">
-                    {c._count.products}
+                    {c.slug === 'all' ? counts.total : (counts.counts[c.slug] ?? 0)}
                   </span>
                 ) : null}
               </button>

@@ -38,6 +38,23 @@ export async function getProducts(
   return { products: res.products, pagination: res.pagination }
 }
 
+export interface CategoryCounts {
+  counts: Record<string, number> // category slug → matching products
+  total: number
+}
+
+// GET /api/products/category-counts — sidebar numbers for the current
+// price/search filters.
+export async function getCategoryCounts(
+  params: ListParams = {}
+): Promise<CategoryCounts> {
+  const res = await api.get<{ data: CategoryCounts }>(
+    '/products/category-counts',
+    { params }
+  )
+  return res.data
+}
+
 // GET /api/products/admin — includes inactive
 export async function getAdminProducts(
   params: ListParams = {}
