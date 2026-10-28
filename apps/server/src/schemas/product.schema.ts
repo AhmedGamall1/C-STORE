@@ -64,6 +64,18 @@ export const updateProductBodySchema = z
 const sortBy = z.enum(['createdAt', 'price', 'name']).catch('createdAt')
 const order = z.enum(['asc', 'desc']).catch('desc')
 
+// "S,M,XL" → ['S', 'M', 'XL'] (empty → no filter)
+const csvList = z
+  .string()
+  .optional()
+  .transform((v) => {
+    const list = (v ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    return list.length ? list : undefined
+  })
+
 export const listProductsPublicQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(12),
@@ -71,15 +83,21 @@ export const listProductsPublicQuerySchema = z.object({
   minPrice: z.coerce.number().nonnegative().optional(),
   maxPrice: z.coerce.number().nonnegative().optional(),
   search: z.string().trim().optional(),
+  sizes: csvList,
+  colors: csvList,
+  inStock: booleanString.optional(),
   sortBy,
   order,
 })
 
-// Category counts follow every shop filter except the category itself.
-export const categoryCountsQuerySchema = listProductsPublicQuerySchema.pick({
+// Sidebar facets follow every shop filter except the category itself.
+export const shopFacetsQuerySchema = listProductsPublicQuerySchema.pick({
   minPrice: true,
   maxPrice: true,
   search: true,
+  sizes: true,
+  colors: true,
+  inStock: true,
 })
 
 export const listProductsAdminQuerySchema = z.object({
@@ -97,6 +115,6 @@ export type ListProductsPublicQuery = z.infer<
   typeof listProductsPublicQuerySchema
 >
 export type ListProductsAdminQuery = z.infer<typeof listProductsAdminQuerySchema>
-export type CategoryCountsQuery = z.infer<typeof categoryCountsQuerySchema>
+export type ShopFacetsQuery = z.infer<typeof shopFacetsQuerySchema>
 
 export { idParamSchema, slugParamSchema } from './common.schema.js'

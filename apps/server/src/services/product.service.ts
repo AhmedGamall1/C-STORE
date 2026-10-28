@@ -10,7 +10,7 @@ import type {
   UpdateProductInput,
   ListProductsPublicQuery,
   ListProductsAdminQuery,
-  CategoryCountsQuery,
+  ShopFacetsQuery,
 } from '../schemas/product.schema.js'
 
 const PRODUCTS_FOLDER = 'c-store/products'
@@ -21,14 +21,34 @@ interface ImageFiles {
 
 // ---------- public reads ----------
 
-// Price + search filters, shared by the product list and the category counts
-// so both always agree on what "matches" means.
-const buildShopWhere = ({
-  minPrice,
-  maxPrice,
-  search,
-}: CategoryCountsQuery): Prisma.ProductWhereInput => {
+// Size / color / stock all describe ONE variant: "a Black M in stock" must be
+// a single size row, not a Black color plus an M of some other color.
+const buildColorWhere = ({
+  sizes,
+  colors,
+  inStock,
+}: ShopFacetsQuery): Prisma.ProductColorWhereInput | null => {
+  if (!sizes && !colors && !inStock) return null
+  return {
+    isActive: true,
+    ...(colors && { name: { in: colors } }),
+    sizes: {
+      some: {
+        isActive: true,
+        ...(sizes && { size: { in: sizes } }),
+        ...(inStock && { stock: { gt: 0 } }),
+      },
+    },
+  }
+}
+
+// Every shop filter except category, shared by the product list and the
+// sidebar facets so both always agree on what "matches" means.
+const buildShopWhere = (query: ShopFacetsQuery): Prisma.ProductWhereInput => {
+  const { minPrice, maxPrice, search } = query
   const where: Prisma.ProductWhereInput = {}
+  const colorWhere = buildColorWhere(query)
+  if (colorWhere) where.colors = { some: colorWhere }
   if (minPrice != null || maxPrice != null) {
     where.price = {
       ...(minPrice != null ? { gte: minPrice } : {}),
@@ -57,6 +77,8 @@ export const getAllProducts = async (query: ListProductsPublicQuery) => {
     skip,
     take: limit,
     orderBy,
+    // Shop All shows a card per color, so only return the matching colors.
+    colorWhere: buildColorWhere(query) ?? undefined,
   })
 
   return {
@@ -65,15 +87,36 @@ export const getAllProducts = async (query: ListProductsPublicQuery) => {
   }
 }
 
-// How many shop products each category has under the current price/search
-// filters (the shop sidebar numbers). total = "All products".
-export const getCategoryCounts = async (query: CategoryCountsQuery) => {
-  const rows = await productRepo.countPublicByCategory(buildShopWhere(query))
+// Clothing sizes in shop order; anything else (32, 38…) sorts after, numerically.
+const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL']
+const sizeRank = (size: string) => {
+  const i = SIZE_ORDER.indexOf(size.toUpperCase())
+  return i === -1 ? SIZE_ORDER.length : i
+}
+const compareSizes = (a: string, b: string) =>
+  sizeRank(a) - sizeRank(b) ||
+  a.localeCompare(b, undefined, { numeric: true })
+
+// Shop sidebar: per-category counts under the current filters (total = "All
+// products"), plus every size and color a shopper can pick from.
+export const getShopFacets = async (query: ShopFacetsQuery) => {
+  const [rows, sizes, colors] = await Promise.all([
+    productRepo.countPublicByCategory(buildShopWhere(query)),
+    productRepo.findPublicSizes(),
+    productRepo.findPublicColors(),
+  ])
+
   const counts = Object.fromEntries(
     rows.map((c) => [c.slug, c._count.products] as const)
   )
   const total = rows.reduce((sum, c) => sum + c._count.products, 0)
-  return { counts, total }
+
+  return {
+    counts,
+    total,
+    sizes: sizes.map((s) => s.size).sort(compareSizes),
+    colors,
+  }
 }
 
 export const getProductBySlug = async (slug: string) => {

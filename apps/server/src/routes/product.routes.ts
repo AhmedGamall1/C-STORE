@@ -2,7 +2,7 @@ import { Router } from 'express'
 import {
   getAllProducts,
   getAllProductsAdmin,
-  getCategoryCounts,
+  getShopFacets,
   getProductByIdAdmin,
   getProductBySlug,
   createProduct,
@@ -20,7 +20,7 @@ import {
   updateProductBodySchema,
   listProductsPublicQuerySchema,
   listProductsAdminQuerySchema,
-  categoryCountsQuerySchema,
+  shopFacetsQuerySchema,
   idParamSchema,
   slugParamSchema,
 } from '../schemas/product.schema.js'
@@ -47,11 +47,11 @@ router.get(
   getAllProducts
 )
 
-// Must sit above '/:slug', or "category-counts" would be read as a slug.
+// Must sit above '/:slug', or "facets" would be read as a slug.
 router.get(
-  '/category-counts',
-  validate({ query: categoryCountsQuerySchema }),
-  getCategoryCounts
+  '/facets',
+  validate({ query: shopFacetsQuerySchema }),
+  getShopFacets
 )
 
 router.get(

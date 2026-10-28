@@ -93,8 +93,44 @@ export const countPublicByCategory = (where: Prisma.ProductWhereInput) =>
     },
   })
 
-// Atomic list + count for public pagination.
-export const findManyPublic = ({ where, skip, take, orderBy }: ProductListArgs) =>
+const publicVariantWhere = {
+  isActive: true,
+  color: {
+    isActive: true,
+    product: { isActive: true, category: { isActive: true } },
+  },
+} satisfies Prisma.ProductSizeWhereInput
+
+// Every size a shopper can filter by (distinct).
+export const findPublicSizes = () =>
+  prisma.productSize.findMany({
+    where: publicVariantWhere,
+    distinct: ['size'],
+    select: { size: true },
+  })
+
+// Every color a shopper can filter by (distinct by name).
+export const findPublicColors = () =>
+  prisma.productColor.findMany({
+    where: {
+      isActive: true,
+      sizes: { some: { isActive: true } },
+      product: { isActive: true, category: { isActive: true } },
+    },
+    distinct: ['name'],
+    orderBy: { name: 'asc' },
+    select: { name: true, hex: true },
+  })
+
+// Atomic list + count for public pagination. `colorWhere` narrows each card's
+// colors to the ones matching the size/color/stock filters.
+export const findManyPublic = ({
+  where,
+  skip,
+  take,
+  orderBy,
+  colorWhere,
+}: ProductListArgs & { colorWhere?: Prisma.ProductColorWhereInput }) =>
   prisma.$transaction([
     prisma.product.findMany({
       where: {
@@ -106,7 +142,12 @@ export const findManyPublic = ({ where, skip, take, orderBy }: ProductListArgs) 
       skip,
       take,
       orderBy,
-      include: productCardInclude,
+      include: colorWhere
+        ? {
+            ...productCardInclude,
+            colors: { ...productCardInclude.colors, where: colorWhere },
+          }
+        : productCardInclude,
     }),
     prisma.product.count({
       where: {
