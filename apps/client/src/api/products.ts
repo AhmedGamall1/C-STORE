@@ -38,18 +38,20 @@ export async function getProducts(
   return { products: res.products, pagination: res.pagination }
 }
 
-export interface CategoryCounts {
+export interface ShopFacets {
   counts: Record<string, number> // category slug → matching products
+  sizes: string[] // every size a shopper can pick
+  colors: { name: string; hex: string | null }[]
   total: number
 }
 
-// GET /api/products/category-counts — sidebar numbers for the current
-// price/search filters.
-export async function getCategoryCounts(
+// GET /api/products/facets — shop sidebar: category counts for the current
+// filters, plus the size and color options.
+export async function getShopFacets(
   params: ListParams = {}
-): Promise<CategoryCounts> {
-  const res = await api.get<{ data: CategoryCounts }>(
-    '/products/category-counts',
+): Promise<ShopFacets> {
+  const res = await api.get<{ data: ShopFacets }>(
+    '/products/facets',
     { params }
   )
   return res.data

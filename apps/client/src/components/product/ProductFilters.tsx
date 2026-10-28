@@ -1,17 +1,34 @@
 import { useState } from 'react'
+import { Check } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
+
+// URL keeps multi-select filters as "A,B"; toggle one value in or out.
+const toggleInList = (csv, value) => {
+  const list = csv ? csv.split(',') : []
+  const next = list.includes(value)
+    ? list.filter((v) => v !== value)
+    : [...list, value]
+  return next.join(',')
+}
 
 export function ProductFilters({
   categories = [],
-  // { counts: { [slug]: n }, total } for the current price/search filters
-  counts,
+  // { counts, total, sizes, colors } for the current filters (from /facets)
+  facets,
   activeCategory = '',
   minPrice = '',
   maxPrice = '',
+  sizes = '',
+  colors = '',
+  inStock = false,
   onFilterChange,
 }) {
+  const selectedSizes = sizes ? sizes.split(',') : []
+  const selectedColors = colors ? colors.split(',') : []
+
   // Price inputs are local state until user clicks "Apply"
   // (we don't want to fire an API call on every keystroke)
   const [localMin, setLocalMin] = useState(minPrice)
@@ -45,9 +62,11 @@ export function ProductFilters({
                 }
               >
                 {c.name}
-                {counts ? (
+                {facets ? (
                   <span className="text-xs tabular opacity-60">
-                    {c.slug === 'all' ? counts.total : (counts.counts[c.slug] ?? 0)}
+                    {c.slug === 'all'
+                      ? facets.total
+                      : (facets.counts[c.slug] ?? 0)}
                   </span>
                 ) : null}
               </button>
@@ -84,6 +103,96 @@ export function ProductFilters({
         >
           Apply
         </Button>
+      </Section>
+
+      {facets?.sizes.length ? (
+        <>
+          <Separator />
+          <Section title="Size">
+            <div className="flex flex-wrap gap-2">
+              {facets.sizes.map((size) => {
+                const active = selectedSizes.includes(size)
+                return (
+                  <button
+                    key={size}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() =>
+                      onFilterChange('sizes', toggleInList(sizes, size))
+                    }
+                    className={cn(
+                      'min-w-10 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors',
+                      active
+                        ? 'border-foreground bg-foreground text-background'
+                        : 'hover:border-foreground'
+                    )}
+                  >
+                    {size}
+                  </button>
+                )
+              })}
+            </div>
+          </Section>
+        </>
+      ) : null}
+
+      {facets?.colors.length ? (
+        <>
+          <Separator />
+          <Section title="Color">
+            <ul className="space-y-1.5">
+              {facets.colors.map((color) => {
+                const active = selectedColors.includes(color.name)
+                return (
+                  <li key={color.name}>
+                    <button
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() =>
+                        onFilterChange('colors', toggleInList(colors, color.name))
+                      }
+                      className={cn(
+                        'flex w-full items-center gap-2.5 rounded-sm px-2 py-1 text-left capitalize transition-colors hover:bg-secondary',
+                        active ? 'font-semibold' : 'text-muted-foreground'
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'grid h-4 w-4 shrink-0 place-items-center rounded-full border',
+                          active && 'ring-2 ring-foreground ring-offset-1'
+                        )}
+                        style={{ backgroundColor: color.hex ?? undefined }}
+                      />
+                      {color.name.toLowerCase()}
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </Section>
+        </>
+      ) : null}
+
+      <Separator />
+
+      <Section title="Availability">
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={inStock}
+          onClick={() => onFilterChange('inStock', inStock ? '' : '1')}
+          className="flex items-center gap-2.5 px-2 py-1 text-left"
+        >
+          <span
+            className={cn(
+              'grid h-4 w-4 place-items-center rounded-sm border',
+              inStock && 'border-foreground bg-foreground text-background'
+            )}
+          >
+            {inStock ? <Check className="h-3 w-3" /> : null}
+          </span>
+          In stock only
+        </button>
       </Section>
     </aside>
   )

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
   getProducts,
-  getCategoryCounts,
+  getShopFacets,
   getAdminProducts,
   getAdminProduct,
   getProduct,
@@ -24,11 +24,11 @@ export function useProducts(filters: ListParams = {}) {
   })
 }
 
-// Shop sidebar: products per category under the current price/search filters.
-export function useCategoryCounts(filters: ListParams = {}) {
+// Shop sidebar: category counts under the current filters + size/color options.
+export function useShopFacets(filters: ListParams = {}) {
   return useQuery({
-    queryKey: ['products', 'category-counts', filters],
-    queryFn: () => getCategoryCounts(filters),
+    queryKey: ['products', 'facets', filters],
+    queryFn: () => getShopFacets(filters),
     placeholderData: (prev) => prev,
   })
 }

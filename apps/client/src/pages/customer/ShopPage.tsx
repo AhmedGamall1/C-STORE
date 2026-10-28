@@ -19,7 +19,7 @@ import { Badge } from '@/components/ui/badge'
 import { ProductGrid } from '@/components/product/ProductGrid'
 import { ProductFilters } from '@/components/product/ProductFilters'
 import { Pagination } from '@/components/product/Pagination'
-import { useCategoryCounts, useProducts } from '@/hooks/useProducts'
+import { useShopFacets, useProducts } from '@/hooks/useProducts'
 import { useCategories } from '@/hooks/useCategories'
 import { ErrorView } from '@/components/common/ErrorView'
 
@@ -47,8 +47,21 @@ export default function ShopPage() {
   const minPrice = searchParams.get('minPrice') || ''
   const maxPrice = searchParams.get('maxPrice') || ''
   const search = searchParams.get('search') || ''
+  const sizes = searchParams.get('sizes') || '' // "S,M"
+  const colors = searchParams.get('colors') || '' // "Black,Brown"
+  const inStock = searchParams.get('inStock') === '1'
   const sort = searchParams.get('sort') || 'newest'
   const page = Number(searchParams.get('page')) || 1
+
+  // Every filter except category (the sidebar counts follow these)
+  const shopFilters = {
+    ...(minPrice && { minPrice }),
+    ...(maxPrice && { maxPrice }),
+    ...(search && { search }),
+    ...(sizes && { sizes }),
+    ...(colors && { colors }),
+    ...(inStock && { inStock: '1' }),
+  }
 
   // Build the API params object
   const sortParams = SORT_MAP[sort] || SORT_MAP.newest
@@ -56,9 +69,7 @@ export default function ShopPage() {
     page,
     ...sortParams,
     ...(category && { category }),
-    ...(minPrice && { minPrice }),
-    ...(maxPrice && { maxPrice }),
-    ...(search && { search }),
+    ...shopFilters,
   }
 
   const { data, isLoading, isError, error, refetch } = useProducts(filters)
@@ -99,13 +110,20 @@ export default function ShopPage() {
     )
   }
 
-  // Category counts follow the other filters (price, search), not the category.
-  const countFilters = {
-    ...(minPrice && { minPrice }),
-    ...(maxPrice && { maxPrice }),
-    ...(search && { search }),
+  // Category counts follow every filter except the category itself.
+  const { data: facets } = useShopFacets(shopFilters)
+
+  const filterProps = {
+    categories,
+    facets,
+    activeCategory: category,
+    minPrice,
+    maxPrice,
+    sizes,
+    colors,
+    inStock,
+    onFilterChange: setFilter,
   }
-  const { data: categoryCounts } = useCategoryCounts(countFilters)
 
   // Find category name for the header
   const activeCategoryName = category
@@ -144,12 +162,7 @@ export default function ShopPage() {
             <ProductFilters
               // Remount when the URL price changes, so the inputs reset too.
               key={`${minPrice}-${maxPrice}`}
-              categories={categories}
-              counts={categoryCounts}
-              activeCategory={category}
-              minPrice={minPrice}
-              maxPrice={maxPrice}
-              onFilterChange={setFilter}
+              {...filterProps}
             />
           </div>
 
@@ -173,12 +186,7 @@ export default function ShopPage() {
                     <div className="mt-6">
                       <ProductFilters
                         key={`${minPrice}-${maxPrice}`}
-                        categories={categories}
-                        counts={categoryCounts}
-                        activeCategory={category}
-                        minPrice={minPrice}
-                        maxPrice={maxPrice}
-                        onFilterChange={setFilter}
+                        {...filterProps}
                       />
                     </div>
                   </SheetContent>
@@ -189,6 +197,9 @@ export default function ShopPage() {
                   minPrice={minPrice}
                   maxPrice={maxPrice}
                   search={search}
+                  sizes={sizes}
+                  colors={colors}
+                  inStock={inStock}
                   onRemove={setFilter}
                   onClearAll={clearFilters}
                 />
@@ -270,6 +281,9 @@ function ActiveFilters({
   minPrice,
   maxPrice,
   search,
+  sizes,
+  colors,
+  inStock,
   onRemove,
   onClearAll,
 }) {
@@ -278,6 +292,9 @@ function ActiveFilters({
   if (minPrice) chips.push({ label: `Min: ${minPrice} EGP`, key: 'minPrice' })
   if (maxPrice) chips.push({ label: `Max: ${maxPrice} EGP`, key: 'maxPrice' })
   if (search) chips.push({ label: `"${search}"`, key: 'search' })
+  if (sizes) chips.push({ label: `Size: ${sizes.replaceAll(',', ', ')}`, key: 'sizes' })
+  if (colors) chips.push({ label: colors.replaceAll(',', ', '), key: 'colors' })
+  if (inStock) chips.push({ label: 'In stock', key: 'inStock' })
 
   if (chips.length === 0) return null
 
