@@ -10,6 +10,7 @@ import type {
   UpdateProductInput,
   ListProductsPublicQuery,
   ListProductsAdminQuery,
+  CategoryCountsQuery,
 } from '../schemas/product.schema.js'
 
 const PRODUCTS_FOLDER = 'c-store/products'
@@ -19,13 +20,15 @@ interface ImageFiles {
 }
 
 // ---------- public reads ----------
-export const getAllProducts = async (query: ListProductsPublicQuery) => {
-  const { page, limit, category, minPrice, maxPrice, search, sortBy, order } =
-    query
 
-  const skip = (page - 1) * limit
+// Price + search filters, shared by the product list and the category counts
+// so both always agree on what "matches" means.
+const buildShopWhere = ({
+  minPrice,
+  maxPrice,
+  search,
+}: CategoryCountsQuery): Prisma.ProductWhereInput => {
   const where: Prisma.ProductWhereInput = {}
-  if (category) where.category = { slug: category }
   if (minPrice != null || maxPrice != null) {
     where.price = {
       ...(minPrice != null ? { gte: minPrice } : {}),
@@ -38,6 +41,15 @@ export const getAllProducts = async (query: ListProductsPublicQuery) => {
       { description: { contains: search, mode: 'insensitive' } },
     ]
   }
+  return where
+}
+
+export const getAllProducts = async (query: ListProductsPublicQuery) => {
+  const { page, limit, category, sortBy, order } = query
+
+  const skip = (page - 1) * limit
+  const where = buildShopWhere(query)
+  if (category) where.category = { slug: category }
 
   const orderBy: Prisma.ProductOrderByWithRelationInput = { [sortBy]: order }
   const [products, total] = await productRepo.findManyPublic({
@@ -51,6 +63,17 @@ export const getAllProducts = async (query: ListProductsPublicQuery) => {
     products,
     pagination: paginationOf(total, page, limit, skip),
   }
+}
+
+// How many shop products each category has under the current price/search
+// filters (the shop sidebar numbers). total = "All products".
+export const getCategoryCounts = async (query: CategoryCountsQuery) => {
+  const rows = await productRepo.countPublicByCategory(buildShopWhere(query))
+  const counts = Object.fromEntries(
+    rows.map((c) => [c.slug, c._count.products] as const)
+  )
+  const total = rows.reduce((sum, c) => sum + c._count.products, 0)
+  return { counts, total }
 }
 
 export const getProductBySlug = async (slug: string) => {

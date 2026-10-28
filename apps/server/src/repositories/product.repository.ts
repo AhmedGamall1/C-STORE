@@ -79,6 +79,20 @@ export const findPublicBySlug = (slug: string) =>
     include: productDetailInclude,
   })
 
+// Per-category count of shop-visible products matching `where` (one query).
+export const countPublicByCategory = (where: Prisma.ProductWhereInput) =>
+  prisma.category.findMany({
+    where: { isActive: true },
+    select: {
+      slug: true,
+      _count: {
+        select: {
+          products: { where: { isActive: true, ...buyableWhere, ...where } },
+        },
+      },
+    },
+  })
+
 // Atomic list + count for public pagination.
 export const findManyPublic = ({ where, skip, take, orderBy }: ProductListArgs) =>
   prisma.$transaction([

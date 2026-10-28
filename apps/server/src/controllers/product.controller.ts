@@ -3,6 +3,7 @@ import * as productService from '../services/product.service.js'
 import type {
   ListProductsPublicQuery,
   ListProductsAdminQuery,
+  CategoryCountsQuery,
 } from '../schemas/product.schema.js'
 
 // req.query is already parsed/coerced by the validate() middleware.
@@ -13,6 +14,14 @@ export const getAllProducts = async (req: Request, res: Response) => {
     req.query as unknown as ListProductsPublicQuery
   )
   res.json({ status: 'success', ...result })
+}
+
+// GET /api/products/category-counts
+export const getCategoryCounts = async (req: Request, res: Response) => {
+  const data = await productService.getCategoryCounts(
+    req.query as unknown as CategoryCountsQuery
+  )
+  res.json({ status: 'success', data })
 }
 
 // GET /api/products/admin

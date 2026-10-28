@@ -75,6 +75,13 @@ export const listProductsPublicQuerySchema = z.object({
   order,
 })
 
+// Category counts follow every shop filter except the category itself.
+export const categoryCountsQuerySchema = listProductsPublicQuerySchema.pick({
+  minPrice: true,
+  maxPrice: true,
+  search: true,
+})
+
 export const listProductsAdminQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),
@@ -90,5 +97,6 @@ export type ListProductsPublicQuery = z.infer<
   typeof listProductsPublicQuerySchema
 >
 export type ListProductsAdminQuery = z.infer<typeof listProductsAdminQuerySchema>
+export type CategoryCountsQuery = z.infer<typeof categoryCountsQuerySchema>
 
 export { idParamSchema, slugParamSchema } from './common.schema.js'
