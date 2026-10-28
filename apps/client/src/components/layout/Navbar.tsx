@@ -10,9 +10,9 @@ import {
 } from 'lucide-react'
 import { Logo } from '@/components/common/Logo'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { CartDrawer } from './CartDrawer'
+import { SearchBar } from './SearchBar'
 import { MobileNav } from './MobileNav'
 import { cn } from '@/lib/utils'
 import { useCategories } from '@/hooks/useCategories'
@@ -117,14 +117,7 @@ export function Navbar() {
       {searchOpen ? (
         <div className="border-t bg-background">
           <div className="container-page py-3">
-            <div className="relative max-w-2xl mx-auto">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                autoFocus
-                placeholder="Search products..."
-                className="pl-10"
-              />
-            </div>
+            <SearchBar onClose={() => setSearchOpen(false)} />
           </div>
         </div>
       ) : null}
