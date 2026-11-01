@@ -7,7 +7,11 @@ import redis from '../config/redis.js'
 const makeStore = (prefix: string) =>
   new RedisStore({
     sendCommand: (...args: string[]) =>
-      redis.call(...(args as [string, ...string[]])) as Promise<RedisReply>,
+      redis.status === 'ready'
+        ? (redis.call(
+            ...(args as [string, ...string[]])
+          ) as Promise<RedisReply>)
+        : Promise.reject(new Error('Redis is not connected')),
     prefix,
   })
 
@@ -17,6 +21,7 @@ export const generalLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   store: makeStore('rl:general:'),
+  passOnStoreError: true,
   message: {
     status: 'error',
     message: 'Too many requests. Please try again in a few minutes.',
@@ -30,6 +35,7 @@ export const authLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   store: makeStore('rl:auth:'),
+  passOnStoreError: true,
   message: {
     status: 'error',
     message:

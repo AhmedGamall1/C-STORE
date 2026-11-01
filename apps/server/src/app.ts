@@ -18,10 +18,8 @@ import shippingRoutes from './routes/shipping.routes.js'
 import orderRoutes from './routes/order.routes.js'
 import addressRoutes from './routes/address.routes.js'
 import paymobRoutes from './routes/paymob.routes.js'
-import {
-  generalLimiter,
-  authLimiter,
-} from './middlewares/rateLimit.middleware.js'
+import dashboardRoutes from './routes/dashboard.routes.js'
+import { generalLimiter } from './middlewares/rateLimit.middleware.js'
 
 const app = express()
 
@@ -47,7 +45,6 @@ app.use(express.urlencoded({ extended: true, limit: '100kb' }))
 
 // Rate limiting
 app.use('/api', generalLimiter)
-app.use('/api/auth', authLimiter)
 
 // Routes
 app.use('/api/auth', authRoutes)
@@ -59,6 +56,7 @@ app.use('/api/shipping', shippingRoutes)
 app.use('/api/orders', orderRoutes)
 app.use('/api/addresses', addressRoutes)
 app.use('/api/paymob', paymobRoutes)
+app.use('/api/dashboard', dashboardRoutes)
 
 // Health check endpoint
 app.get('/api/health', async (_req: Request, res: Response) => {

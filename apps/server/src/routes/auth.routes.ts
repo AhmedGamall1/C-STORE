@@ -11,6 +11,7 @@ import {
   refresh,
 } from '../controllers/auth.controller.js'
 import { protect } from '../middlewares/auth.middleware.js'
+import { authLimiter } from '../middlewares/rateLimit.middleware.js'
 import { validate } from '../middlewares/validate.middleware.js'
 import {
   registerSchema,
@@ -22,18 +23,30 @@ import {
 
 const router = Router()
 
-router.post('/register', validate({ body: registerSchema }), register)
-router.post('/verify-email', validate({ body: verifyEmailSchema }), verifyEmail)
-router.post('/resend-verification', protect, resendVerification)
-router.post('/login', validate({ body: loginSchema }), login)
+router.post(
+  '/register',
+  authLimiter,
+  validate({ body: registerSchema }),
+  register
+)
+router.post(
+  '/verify-email',
+  authLimiter,
+  validate({ body: verifyEmailSchema }),
+  verifyEmail
+)
+router.post('/resend-verification', authLimiter, protect, resendVerification)
+router.post('/login', authLimiter, validate({ body: loginSchema }), login)
 router.post('/logout', logout)
 router.post(
   '/forgot-password',
+  authLimiter,
   validate({ body: forgotPasswordSchema }),
   forgotPassword
 )
 router.post(
   '/reset-password',
+  authLimiter,
   validate({ body: resetPasswordSchema }),
   resetPassword
 )

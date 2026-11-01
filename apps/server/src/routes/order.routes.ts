@@ -43,22 +43,17 @@ router.get(
   getPaymentStatus
 )
 
-router.use(protect)
-
-router.get('/', getMyOrders)
-
+// Admin reads are public on purpose: read-only admin demo, all data is fake.
 router.get(
   '/admin',
-  restrictTo('ADMIN'),
   validate({ query: listOrdersAdminQuerySchema }),
   getAllOrders
 )
-router.get(
-  '/admin/:id',
-  restrictTo('ADMIN'),
-  validate({ params: idParamSchema }),
-  getOrderByIdAdmin
-)
+router.get('/admin/:id', validate({ params: idParamSchema }), getOrderByIdAdmin)
+
+router.use(protect)
+
+router.get('/', getMyOrders)
 
 router.get('/:id', validate({ params: idParamSchema }), getOrderById)
 

@@ -48,23 +48,16 @@ router.get(
 )
 
 // Must sit above '/:slug', or "facets" would be read as a slug.
-router.get(
-  '/facets',
-  validate({ query: shopFacetsQuerySchema }),
-  getShopFacets
-)
+router.get('/facets', validate({ query: shopFacetsQuerySchema }), getShopFacets)
 
+// Admin reads are public on purpose: read-only admin demo, all data is fake.
 router.get(
   '/admin',
-  protect,
-  restrictTo('ADMIN'),
   validate({ query: listProductsAdminQuerySchema }),
   getAllProductsAdmin
 )
 router.get(
   '/admin/:id',
-  protect,
-  restrictTo('ADMIN'),
   validate({ params: idParamSchema }),
   getProductByIdAdmin
 )

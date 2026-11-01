@@ -22,8 +22,9 @@ const router = Router()
 // public routes
 router.get('/', getAllCategories)
 
-// admin routes (before /:slug so "admin" isn't treated as a slug)
-router.get('/admin', protect, restrictTo('ADMIN'), getAllCategoriesAdmin)
+// Admin reads are public on purpose: read-only admin demo, all data is fake.
+// (before /:slug so "admin" isn't treated as a slug)
+router.get('/admin', getAllCategoriesAdmin)
 
 router.get('/:slug', validate({ params: slugParamSchema }), getCategoryBySlug)
 
