@@ -43,15 +43,16 @@ export function Hero() {
           </div>
         </div>
 
-        {/* Image — fixed brand asset. Hidden on mobile to keep the hero compact. */}
-        <div className="relative hidden md:block">
+        {/* Image — fixed brand asset */}
+        <div className="relative">
           <Link
             to="/shop"
             className="block overflow-hidden rounded-lg bg-secondary"
           >
             <img
               src="/HERO.webp"
-              alt="New 2026 collection"
+              alt="Black overshirt with off-white tailored trousers"
+              fetchPriority="high"
               className="aspect-4/5 w-full object-cover transition-transform duration-500 hover:scale-105"
             />
           </Link>

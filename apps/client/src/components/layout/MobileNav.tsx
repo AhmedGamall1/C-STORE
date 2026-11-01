@@ -1,4 +1,5 @@
 import { Link } from 'react-router'
+import { LayoutDashboard } from 'lucide-react'
 import { Logo } from '@/components/common/Logo'
 import { Separator } from '@/components/ui/separator'
 import { useCategories } from '@/hooks/useCategories'
@@ -12,6 +13,13 @@ export function MobileNav() {
       </div>
       <Separator />
       <nav className="flex-1 overflow-y-auto p-6">
+        <Link
+          to="/admin"
+          className="mb-4 flex items-center gap-2 rounded-md bg-accent px-3 py-2.5 text-sm font-semibold text-accent-foreground"
+        >
+          <LayoutDashboard className="h-4 w-4" />
+          Admin dashboard (demo)
+        </Link>
         <div className="space-y-1">
           <Link
             to="/shop"

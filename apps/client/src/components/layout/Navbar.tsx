@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, NavLink } from 'react-router'
 import {
+  LayoutDashboard,
   Menu,
   Search,
   ShoppingBag,
@@ -82,6 +83,29 @@ export function Navbar() {
 
         {/* Actions */}
         <div className="ml-auto flex items-center gap-1">
+          {/* Public read-only demo, so recruiters can find the admin panel */}
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="mr-2 hidden sm:inline-flex"
+          >
+            <Link to="/admin">
+              <LayoutDashboard className="h-4 w-4" />
+              Admin dashboard
+            </Link>
+          </Button>
+          <Button
+            asChild
+            variant="ghost"
+            size="icon"
+            className="sm:hidden"
+            aria-label="Admin dashboard"
+          >
+            <Link to="/admin">
+              <LayoutDashboard className="h-5 w-5" />
+            </Link>
+          </Button>
           <Button
             variant="ghost"
             size="icon"

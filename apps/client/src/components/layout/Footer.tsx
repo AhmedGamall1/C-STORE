@@ -23,6 +23,7 @@ const STATIC_GROUPS = [
       { label: 'Our Story', to: '/about' },
       { label: 'Stockists', to: '/stockists' },
       { label: 'Careers', to: '/careers' },
+      { label: 'Admin dashboard (demo)', to: '/admin' },
     ],
   },
 ]
@@ -56,7 +57,10 @@ export function Footer() {
               Premium clothing for every day, delivered anywhere in Egypt. Pay
               by card or cash on delivery.
             </p>
-            <form className="flex max-w-sm gap-2 pt-2" onSubmit={(e) => e.preventDefault()}>
+            <form
+              className="flex max-w-sm gap-2 pt-2"
+              onSubmit={(e) => e.preventDefault()}
+            >
               <Input placeholder="Your email" type="email" required />
               <Button type="submit">
                 <Mail className="h-4 w-4" />

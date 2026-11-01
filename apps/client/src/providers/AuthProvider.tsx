@@ -13,7 +13,7 @@ import {
   register as registerApi,
 } from '@/api/auth'
 import { mergeCart } from '@/api/cart'
-import { setSessionExpiredHandler } from '@/lib/api'
+import { setCanEditCatalog, setSessionExpiredHandler } from '@/lib/api'
 import { getGuestItems, clearGuestCart } from '@/lib/guestCart'
 import type { User } from '@/types/api'
 
@@ -84,6 +84,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     meta: { silent401: true, silentError: true },
   })
 
+  const isAdmin = user?.role === 'ADMIN'
+  useEffect(() => setCanEditCatalog(isAdmin), [isAdmin])
+
   const loginMutation = useMutation({
     mutationFn: loginApi,
     onSuccess: async (data) => {
@@ -111,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value: AuthContextValue = {
     user: user ?? null,
     isAuthenticated: Boolean(user),
-    isAdmin: user?.role === 'ADMIN',
+    isAdmin,
     isLoading: isLoading && !isFetched, // only true on the very first load
     login: loginMutation.mutateAsync,
     register: registerMutation.mutateAsync,

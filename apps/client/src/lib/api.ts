@@ -4,11 +4,39 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from 'axios'
 import { toApiError } from './errors/parse'
+import { ApiError } from './errors/ApiError'
 
 const instance = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
   withCredentials: true, // send + receive the httpOnly access/refresh cookies
   timeout: 15000,
+})
+
+// ── Admin demo guard ───────────────────────────────────
+// Non-admins can browse the admin panel. Their admin writes would only bounce
+// off the server (401 → login redirect), so stop them here with a clear toast.
+const ADMIN_WRITE = /^\/(products|categories)(\/|$)|^\/orders\/[^/]+\/status$/
+let canEditCatalog = false
+export function setCanEditCatalog(value: boolean): void {
+  canEditCatalog = value
+}
+
+instance.interceptors.request.use((config) => {
+  const method = (config.method ?? 'get').toLowerCase()
+  if (
+    method !== 'get' &&
+    !canEditCatalog &&
+    ADMIN_WRITE.test(config.url ?? '')
+  ) {
+    return Promise.reject(
+      new ApiError({
+        status: 403,
+        code: 'DEMO_READ_ONLY',
+        message: 'Demo mode: changes are disabled.',
+      })
+    )
+  }
+  return config
 })
 
 // A 401 from these endpoints is a genuine auth failure (bad credentials, or a
@@ -59,6 +87,9 @@ instance.interceptors.response.use(
   // (not an AxiosResponse).
   (response) => response.data,
   async (error: AxiosError) => {
+    // Already an ApiError (the demo guard above): pass it through untouched.
+    if (error instanceof ApiError) return Promise.reject(error)
+
     const original = error.config as RetryableConfig | undefined
     const status = error.response?.status
 

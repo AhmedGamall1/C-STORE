@@ -1,8 +1,10 @@
-import { Navigate, Outlet } from 'react-router'
+import { Outlet } from 'react-router'
 import { useAuth } from '@/providers/AuthProvider'
 
+// Anyone can open the admin panel as a read-only demo; only admins can change
+// things (the server enforces it, the api layer blocks the requests early).
 export function AdminRoute() {
-  const { isAuthenticated, isAdmin, isLoading } = useAuth()
+  const { isLoading } = useAuth()
 
   if (isLoading) {
     return (
@@ -10,14 +12,6 @@ export function AdminRoute() {
         <div className="h-4 w-32 animate-pulse rounded bg-secondary" />
       </div>
     )
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />
-  }
-
-  if (!isAdmin) {
-    return <Navigate to="/" replace />
   }
 
   return <Outlet />

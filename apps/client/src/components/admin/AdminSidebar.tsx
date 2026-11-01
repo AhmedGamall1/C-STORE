@@ -4,7 +4,6 @@ import {
   Package,
   ShoppingBag,
   Tag,
-  Users,
   LogOut,
   ArrowLeft,
 } from 'lucide-react'
@@ -16,7 +15,6 @@ const NAV = [
   { to: '/admin/orders', label: 'Orders', icon: ShoppingBag },
   { to: '/admin/products', label: 'Products', icon: Package },
   { to: '/admin/categories', label: 'Categories', icon: Tag },
-  { to: '/admin/customers', label: 'Customers', icon: Users },
 ]
 
 export function AdminSidebar({ onNavigate }) {
