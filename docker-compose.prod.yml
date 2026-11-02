@@ -1,3 +1,9 @@
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: '3'
+
 services:
   postgres:
     image: postgres:15-alpine
@@ -14,12 +20,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    mem_limit: 1500m
+    mem_limit: 256m
+    logging: *logging
 
   redis:
     image: redis:7-alpine
     container_name: cstore_redis
     restart: unless-stopped
+    command: redis-server --maxmemory 48mb --maxmemory-policy volatile-lru
     volumes:
       - redis_data:/data
     healthcheck:
@@ -27,20 +35,22 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-    mem_limit: 256m
+    mem_limit: 64m
+    logging: *logging
 
   server:
-    image: ghcr.io/ahmedgamall1/cstore-server:latest
+    image: ghcr.io/ahmedgamall1/cstore-server:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: apps/server/Dockerfile
     container_name: cstore_server
     restart: unless-stopped
-    init: true # PID 1 reaping; clean SIGTERM forwarding
+    init: true
     env_file:
       - .env
     environment:
       NODE_ENV: production
+      REDIS_URL: redis://redis:6379
     depends_on:
       postgres:
         condition: service_healthy
@@ -53,31 +63,31 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
-    mem_limit: 700m
+    mem_limit: 320m
+    logging: *logging
 
   web:
-    image: ghcr.io/ahmedgamall1/cstore-web:latest
+    image: ghcr.io/ahmedgamall1/cstore-web:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: apps/client/Dockerfile
     container_name: cstore_web
     restart: unless-stopped
-    environment:
-      DOMAIN: ${DOMAIN}
-      ACME_EMAIL: ${ACME_EMAIL}
-    ports:
-      - '80:80'
-      - '443:443'
     depends_on:
       server:
         condition: service_started
-    volumes:
-      - caddy_data:/data
-      - caddy_config:/config
-    mem_limit: 200m
+    networks:
+      default:
+      edge:
+        aliases:
+          - cstore-web
+    mem_limit: 64m
+    logging: *logging
 
 volumes:
   postgres_data:
   redis_data:
-  caddy_data: # Let's Encrypt certs persist here
-  caddy_config:
+
+networks:
+  edge:
+    external: true

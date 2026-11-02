@@ -24,4 +24,3 @@ COPY infra/Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /app/apps/client/dist /srv
 
 EXPOSE 80
-EXPOSE 443

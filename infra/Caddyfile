@@ -1,29 +1,28 @@
 {
-    # Email used for Let's Encrypt account + expiry notices
-    email {$ACME_EMAIL}
+    servers {
+        trusted_proxies static private_ranges
+        client_ip_headers CF-Connecting-IP
+    }
 }
 
-{$DOMAIN} {
+:80 {
     encode gzip zstd
 
-    # Long-cache hashed assets, never cache index.html
     @assets path /assets/*
     header @assets Cache-Control "public, max-age=31536000, immutable"
 
-    # Reverse proxy /api/* to the Node server.
     handle /api/* {
-        reverse_proxy server:5000
+        reverse_proxy server:5000 {
+            header_up X-Forwarded-For {client_ip}
+        }
     }
 
-    # Single-page-app fallback: serve files from /srv, fall back to index.html
     handle {
         root * /srv
         try_files {path} /index.html
         file_server
     }
 
-    # Security headers (Helmet sets these on /api responses already; this
-    # covers the static side too).
     header {
         Strict-Transport-Security "max-age=31536000; includeSubDomains"
         X-Content-Type-Options    "nosniff"
