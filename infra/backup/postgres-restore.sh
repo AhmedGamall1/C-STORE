@@ -12,7 +12,7 @@
 set -eu
 
 CSTORE_DIR="${CSTORE_DIR:-/opt/cstore}"
-COMPOSE_FILE="${COMPOSE_FILE:-${CSTORE_DIR}/docker-compose.prod.yml}"
+COMPOSE_FILE="${COMPOSE_FILE:-${CSTORE_DIR}/compose.yml}"
 REMOTE="${REMOTE:-b2:cstore-backups/postgres}"
 TMP_DIR="${TMP_DIR:-/tmp/cstore-restore}"
 

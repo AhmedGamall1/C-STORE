@@ -12,7 +12,7 @@ set -eu
 
 # ---- Config (override via env if your layout differs) ----------------
 CSTORE_DIR="${CSTORE_DIR:-/opt/cstore}"
-COMPOSE_FILE="${COMPOSE_FILE:-${CSTORE_DIR}/docker-compose.prod.yml}"
+COMPOSE_FILE="${COMPOSE_FILE:-${CSTORE_DIR}/compose.yml}"
 LOCAL_DIR="${LOCAL_DIR:-/var/backups/cstore}"
 REMOTE="${REMOTE:-b2:cstore-backups/postgres}"
 KEEP_DAYS="${KEEP_DAYS:-14}"
