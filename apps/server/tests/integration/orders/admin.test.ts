@@ -19,21 +19,54 @@ const seedOrder = async () => {
   const addr = await createAddress(user.id)
   const v = await createVariant({ stock: 5 })
   const order = await placeOrder(cookie, addr.id, v.size.id)
-  return { order, variantId: v.size.id, customerCookie: cookie }
+  return { order, user, variantId: v.size.id, customerCookie: cookie }
+}
+
+const expectMasked = (order, user) => {
+  expect(order.user.email).not.toBe(user.email)
+  expect(order.user.email).toContain('***@')
+  expect(order.user.firstName).toBe(`${user.firstName[0]}***`)
+  expect(order.address.street).toBe('***')
 }
 
 describe('GET /api/orders/admin', () => {
-  it('returns 401 without auth', async () => {
+  it('is public but hides personal data without auth', async () => {
+    const { user } = await seedOrder()
     const res = await request(app).get('/api/orders/admin')
-    expect(res.status).toBe(401)
+
+    expect(res.status).toBe(200)
+    expectMasked(res.body.data.orders[0], user)
   })
 
-  it('returns 403 for non-admin users', async () => {
+  it('hides personal data from customers', async () => {
+    const { user } = await seedOrder()
     const { cookie } = await loggedInUser({ role: 'CUSTOMER' })
     const res = await request(app)
       .get('/api/orders/admin')
       .set('Cookie', cookie)
-    expect(res.status).toBe(403)
+
+    expect(res.status).toBe(200)
+    expectMasked(res.body.data.orders[0], user)
+  })
+
+  it('shows personal data to admins', async () => {
+    const { user } = await seedOrder()
+    const { cookie } = await loggedInUser({ role: 'ADMIN' })
+    const res = await request(app)
+      .get('/api/orders/admin')
+      .set('Cookie', cookie)
+
+    expect(res.body.data.orders[0].user.email).toBe(user.email)
+  })
+
+  it('does not search by personal data without admin', async () => {
+    const { user } = await seedOrder()
+    const res = await request(app).get(
+      `/api/orders/admin?q=${encodeURIComponent(user.email)}`
+    )
+
+    expect(res.status).toBe(200)
+    expect(res.body.data.orders).toHaveLength(0)
   })
 
   it('returns all orders with pagination shape for admin', async () => {
@@ -73,12 +106,15 @@ describe('GET /api/orders/admin', () => {
 })
 
 describe('GET /api/orders/admin/:id', () => {
-  it('returns 403 for non-admin users', async () => {
+  it('hides personal data from non-admins', async () => {
+    const { order, user } = await seedOrder()
     const { cookie } = await loggedInUser({ role: 'CUSTOMER' })
     const res = await request(app)
-      .get('/api/orders/admin/00000000-0000-0000-0000-000000000000')
+      .get(`/api/orders/admin/${order.id}`)
       .set('Cookie', cookie)
-    expect(res.status).toBe(403)
+
+    expect(res.status).toBe(200)
+    expectMasked(res.body.data.order, user)
   })
 
   it('returns 404 when the id does not exist', async () => {

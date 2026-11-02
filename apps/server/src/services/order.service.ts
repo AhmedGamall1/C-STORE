@@ -1,5 +1,6 @@
 import { Prisma, type User, type OrderStatus } from '@prisma/client'
 import AppError from '../utils/AppError.js'
+import { HIDDEN, maskEmail, maskName, maskPhone } from '../utils/mask.js'
 import { getShippingCost } from '../config/shipping.js'
 import { withTransaction } from '../repositories/transaction.js'
 import * as orderRepo from '../repositories/order.repository.js'
@@ -19,6 +20,28 @@ type OrderSize = Awaited<
 >[number]
 
 type CreateOrderBody = CreateOrderUserInput | CreateOrderGuestInput
+
+type AdminOrder = NonNullable<
+  Awaited<ReturnType<typeof orderRepo.findByIdAdmin>>
+>
+
+// Admin reads are public for the demo, so only real admins see who ordered.
+const hidePersonalData = (order: AdminOrder): AdminOrder => ({
+  ...order,
+  guestName: maskName(order.guestName),
+  guestEmail: maskEmail(order.guestEmail),
+  guestPhone: maskPhone(order.guestPhone),
+  shippingStreet: order.shippingStreet && HIDDEN,
+  notes: order.notes && HIDDEN,
+  address: order.address && { ...order.address, street: HIDDEN },
+  user: order.user && {
+    ...order.user,
+    firstName: maskName(order.user.firstName),
+    lastName: maskName(order.user.lastName),
+    email: maskEmail(order.user.email),
+    phone: maskPhone(order.user.phone),
+  },
+})
 
 // Size price overrides the product price when set.
 const unitPriceOf = (size: OrderSize) => size.price ?? size.color.product.price
@@ -267,7 +290,11 @@ const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   CANCELLED: [],
 }
 
-const buildAdminWhere = (query: ListOrdersAdminQuery) => {
+// Without personal data, search only by order number so it can't confirm who ordered.
+const buildAdminWhere = (
+  query: ListOrdersAdminQuery,
+  revealPersonal: boolean
+) => {
   const { status, paymentStatus, paymentMethod, q } = query
   const where: Prisma.OrderWhereInput = {}
   if (status) where.status = status
@@ -277,23 +304,31 @@ const buildAdminWhere = (query: ListOrdersAdminQuery) => {
   if (q) {
     const term = q
     const asNumber = Number(term)
-    where.OR = [
-      { guestName: { contains: term, mode: 'insensitive' } },
-      { guestEmail: { contains: term, mode: 'insensitive' } },
-      { guestPhone: { contains: term, mode: 'insensitive' } },
-      { user: { firstName: { contains: term, mode: 'insensitive' } } },
-      { user: { lastName: { contains: term, mode: 'insensitive' } } },
-      { user: { email: { contains: term, mode: 'insensitive' } } },
-      ...(Number.isFinite(asNumber) ? [{ orderNumber: asNumber }] : []),
-    ]
+    const byNumber = Number.isFinite(asNumber)
+      ? [{ orderNumber: asNumber }]
+      : []
+    where.OR = revealPersonal
+      ? [
+          { guestName: { contains: term, mode: 'insensitive' } },
+          { guestEmail: { contains: term, mode: 'insensitive' } },
+          { guestPhone: { contains: term, mode: 'insensitive' } },
+          { user: { firstName: { contains: term, mode: 'insensitive' } } },
+          { user: { lastName: { contains: term, mode: 'insensitive' } } },
+          { user: { email: { contains: term, mode: 'insensitive' } } },
+          ...byNumber,
+        ]
+      : byNumber
   }
   return where
 }
 
-export const getAllOrders = async (query: ListOrdersAdminQuery) => {
+export const getAllOrders = async (
+  query: ListOrdersAdminQuery,
+  revealPersonal: boolean
+) => {
   const { page, limit } = query
   const skip = (page - 1) * limit
-  const where = buildAdminWhere(query)
+  const where = buildAdminWhere(query, revealPersonal)
 
   const [orders, total] = await orderRepo.findManyAdmin({
     where,
@@ -302,7 +337,7 @@ export const getAllOrders = async (query: ListOrdersAdminQuery) => {
   })
 
   return {
-    orders,
+    orders: revealPersonal ? orders : orders.map(hidePersonalData),
     pagination: {
       total,
       page,
@@ -314,10 +349,13 @@ export const getAllOrders = async (query: ListOrdersAdminQuery) => {
   }
 }
 
-export const getOrderByIdAdmin = async (orderId: string) => {
+export const getOrderByIdAdmin = async (
+  orderId: string,
+  revealPersonal: boolean
+) => {
   const order = await orderRepo.findByIdAdmin(orderId)
   if (!order) throw new AppError('Order not found', 404)
-  return order
+  return revealPersonal ? order : hidePersonalData(order)
 }
 
 export const updateOrderStatus = async (

@@ -64,7 +64,8 @@ export const cancelOrder = async (req: Request, res: Response) => {
 // GET /api/orders/admin
 export const getAllOrders = async (req: Request, res: Response) => {
   const result = await orderService.getAllOrders(
-    req.query as unknown as ListOrdersAdminQuery
+    req.query as unknown as ListOrdersAdminQuery,
+    req.user?.role === 'ADMIN'
   )
   res.json({
     status: 'success',
@@ -75,7 +76,10 @@ export const getAllOrders = async (req: Request, res: Response) => {
 
 // GET /api/orders/admin/:id
 export const getOrderByIdAdmin = async (req: Request, res: Response) => {
-  const order = await orderService.getOrderByIdAdmin(req.params.id as string)
+  const order = await orderService.getOrderByIdAdmin(
+    req.params.id as string,
+    req.user?.role === 'ADMIN'
+  )
   res.json({ status: 'success', data: { order } })
 }
 

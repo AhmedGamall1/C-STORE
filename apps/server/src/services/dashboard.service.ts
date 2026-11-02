@@ -1,6 +1,7 @@
 import * as dashboardRepo from '../repositories/dashboard.repository.js'
+import { maskName } from '../utils/mask.js'
 
-export const getDashboardStats = async () => {
+export const getDashboardStats = async (revealPersonal: boolean) => {
   const [
     revenue,
     totalOrders,
@@ -19,10 +20,15 @@ export const getDashboardStats = async () => {
       activeProducts,
       customers,
     },
-    recentOrders: recentOrders.map(({ user, guestName, ...order }) => ({
-      ...order,
-      customerName: user ? `${user.firstName} ${user.lastName}` : guestName,
-    })),
+    recentOrders: recentOrders.map(({ user, guestName, ...order }) => {
+      const customerName = user
+        ? `${user.firstName} ${user.lastName}`
+        : guestName
+      return {
+        ...order,
+        customerName: revealPersonal ? customerName : maskName(customerName),
+      }
+    }),
     lowStock: lowStock.map((s) => ({
       id: s.id,
       productId: s.color.product.id,

@@ -43,13 +43,20 @@ router.get(
   getPaymentStatus
 )
 
-// Admin reads are public on purpose: read-only admin demo, all data is fake.
+// Admin reads are public on purpose for the read-only admin demo.
+// Personal data is masked unless the viewer is a real admin.
 router.get(
   '/admin',
+  optionalAuth,
   validate({ query: listOrdersAdminQuerySchema }),
   getAllOrders
 )
-router.get('/admin/:id', validate({ params: idParamSchema }), getOrderByIdAdmin)
+router.get(
+  '/admin/:id',
+  optionalAuth,
+  validate({ params: idParamSchema }),
+  getOrderByIdAdmin
+)
 
 router.use(protect)
 
