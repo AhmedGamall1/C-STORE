@@ -50,6 +50,8 @@ import { cn, formatEGP } from '@/lib/utils'
 
 const STEPS = ['Details', 'Payment', 'Review']
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 const govSlug = (name) =>
   name
     ?.trim()
@@ -86,6 +88,7 @@ export default function CheckoutPage() {
     governorate: '',
   })
   const [phoneTouched, setPhoneTouched] = useState(false)
+  const [emailTouched, setEmailTouched] = useState(false)
 
   const [paymentMethod, setPaymentMethod] = useState('COD')
   const [notes, setNotes] = useState('')
@@ -125,8 +128,7 @@ export default function CheckoutPage() {
 
   const phoneValid = !isAuthenticated && isValidEgyptPhone(guest.phone)
 
-  // Paymob refuses a card payment without an email; guests may skip it.
-  const cardNeedsEmail = !isAuthenticated && !guest.email.trim()
+  const emailValid = !isAuthenticated && EMAIL_PATTERN.test(guest.email.trim())
 
   const detailsValid = isAuthenticated
     ? Boolean(selectedAddressId && shippingCost != null)
@@ -134,6 +136,7 @@ export default function CheckoutPage() {
         guest.firstName.trim() &&
         guest.lastName.trim() &&
         phoneValid &&
+        emailValid &&
         guestAddress.street.trim() &&
         guestAddress.city.trim() &&
         guestAddress.governorate &&
@@ -143,14 +146,9 @@ export default function CheckoutPage() {
   const stepValid = useMemo(() => {
     if (blockedLines.length > 0) return false
     if (step === 0) return detailsValid
-    if (step === 1) {
-      return (
-        Boolean(paymentMethod) &&
-        !(paymentMethod === 'PAYMOB' && cardNeedsEmail)
-      )
-    }
+    if (step === 1) return Boolean(paymentMethod)
     return true
-  }, [step, detailsValid, paymentMethod, cardNeedsEmail, blockedLines.length])
+  }, [step, detailsValid, paymentMethod, blockedLines.length])
 
   // Early returns must stay below every hook: React needs the same hooks, in
   // the same order, on every render.
@@ -199,7 +197,7 @@ export default function CheckoutPage() {
       payload.guest = {
         name: `${guest.firstName.trim()} ${guest.lastName.trim()}`,
         phone: normalizeEgyptPhone(guest.phone),
-        ...(guest.email.trim() && { email: guest.email.trim() }),
+        email: guest.email.trim(),
       }
       payload.shippingAddress = {
         street: guestAddress.street.trim(),
@@ -334,16 +332,15 @@ export default function CheckoutPage() {
                 phoneTouched={phoneTouched}
                 onPhoneBlur={() => setPhoneTouched(true)}
                 phoneValid={phoneValid}
+                emailTouched={emailTouched}
+                onEmailBlur={() => setEmailTouched(true)}
+                emailValid={emailValid}
               />
             )
           ) : null}
 
           {step === 1 ? (
-            <PaymentStep
-              value={paymentMethod}
-              onChange={setPaymentMethod}
-              cardNeedsEmail={cardNeedsEmail}
-            />
+            <PaymentStep value={paymentMethod} onChange={setPaymentMethod} />
           ) : null}
 
           {step === 2 ? (
@@ -509,8 +506,12 @@ function GuestDetailsStep({
   phoneTouched,
   onPhoneBlur,
   phoneValid,
+  emailTouched,
+  onEmailBlur,
+  emailValid,
 }) {
   const showPhoneError = phoneTouched && guest.phone.trim() && !phoneValid
+  const showEmailError = emailTouched && !emailValid
 
   return (
     <section className="space-y-8">
@@ -566,19 +567,29 @@ function GuestDetailsStep({
             </p>
           </div>
           <div className="grid gap-2 sm:col-span-2">
-            <Label htmlFor="g-email">
-              Email{' '}
-              <span className="text-xs font-normal text-muted-foreground">
-                (optional, for order updates)
-              </span>
-            </Label>
+            <Label htmlFor="g-email">Email</Label>
             <Input
               id="g-email"
               type="email"
+              required
               autoComplete="email"
               value={guest.email}
               onChange={(e) => onGuest({ ...guest, email: e.target.value })}
+              onBlur={onEmailBlur}
+              placeholder="you@example.com"
+              aria-invalid={showEmailError || undefined}
+              className={cn(showEmailError && 'border-destructive')}
             />
+            <p
+              className={cn(
+                'text-xs',
+                showEmailError ? 'text-destructive' : 'text-muted-foreground'
+              )}
+            >
+              {showEmailError
+                ? 'Enter a valid email address.'
+                : 'We send your order updates here.'}
+            </p>
           </div>
         </div>
       </div>
@@ -672,7 +683,7 @@ function ShippingHint({ cost, missing, govLabel }) {
 }
 
 /* ---------- Step 2 — Payment ---------- */
-function PaymentStep({ value, onChange, cardNeedsEmail }) {
+function PaymentStep({ value, onChange }) {
   return (
     <section>
       <Header
@@ -695,12 +706,7 @@ function PaymentStep({ value, onChange, cardNeedsEmail }) {
           onClick={onChange}
           icon={CreditCard}
           title="Pay with Paymob"
-          desc={
-            cardNeedsEmail
-              ? 'Add your email in Details to pay by card.'
-              : 'Visa, Mastercard, Meeza — secure online payment.'
-          }
-          disabled={cardNeedsEmail}
+          desc="Visa, Mastercard, Meeza — secure online payment."
         />
       </div>
     </section>
@@ -791,9 +797,7 @@ function ReviewStep({
             {`${guest.firstName} ${guest.lastName}`.trim()}
           </p>
           <p className="text-sm text-muted-foreground">{guest.phone}</p>
-          {guest.email ? (
-            <p className="text-sm text-muted-foreground">{guest.email}</p>
-          ) : null}
+          <p className="text-sm text-muted-foreground">{guest.email}</p>
         </ReviewSection>
       ) : null}
 
