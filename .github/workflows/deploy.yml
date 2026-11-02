@@ -1,0 +1,66 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Commit to deploy (leave empty for the newest commit that passed CI)
+        required: false
+        default: ''
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Choose the commit
+        id: target
+        env:
+          INPUT_SHA: ${{ inputs.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha="$INPUT_SHA"
+          if [[ -z "$sha" ]]; then
+            sha=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml --branch master \
+              --event push --status success --limit 1 --json headSha --jq '.[0].headSha')
+          fi
+          if [[ ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Use a full 40-character commit SHA"
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Check the images exist
+        env:
+          SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          for image in cstore-server cstore-web; do
+            docker manifest inspect "ghcr.io/ahmedgamall1/$image:$SHA" > /dev/null
+          done
+
+      - name: Deploy over SSH
+        env:
+          SSH_KEY_B64: ${{ secrets.DEPLOY_SSH_KEY_B64 }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s' "$SSH_KEY_B64" | tr -d '\r\n ' | base64 -d > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          ssh-keygen -lf ~/.ssh/deploy
+          printf '%s\n' "$KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "deploy@$HOST" "$SHA"
+
+      - name: Health check
+        run: curl -fsS --retry 12 --retry-delay 5 --retry-all-errors https://cstore.ahmedgamal.website/api/health
