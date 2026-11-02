@@ -47,17 +47,17 @@ describe('GET /api/categories (public)', () => {
 })
 
 describe('GET /api/categories/admin', () => {
-  it('returns 401 without auth', async () => {
+  it('is public for the read-only admin demo', async () => {
     const res = await request(app).get('/api/categories/admin')
-    expect(res.status).toBe(401)
+    expect(res.status).toBe(200)
   })
 
-  it('returns 403 for non-admin users', async () => {
+  it('is readable by customers for the read-only admin demo', async () => {
     const { cookie } = await loggedInUser({ role: 'CUSTOMER' })
     const res = await request(app)
       .get('/api/categories/admin')
       .set('Cookie', cookie)
-    expect(res.status).toBe(403)
+    expect(res.status).toBe(200)
   })
 
   it('returns active and inactive categories for admin', async () => {

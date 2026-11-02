@@ -5,17 +5,17 @@ import { loggedInUser } from '../../helpers/auth.js'
 import { createVariant } from '../../factories/product.factory.js'
 
 describe('GET /api/products/admin', () => {
-  it('returns 401 without auth', async () => {
+  it('is public for the read-only admin demo', async () => {
     const res = await request(app).get('/api/products/admin')
-    expect(res.status).toBe(401)
+    expect(res.status).toBe(200)
   })
 
-  it('returns 403 for non-admin users', async () => {
+  it('is readable by customers for the read-only admin demo', async () => {
     const { cookie } = await loggedInUser({ role: 'CUSTOMER' })
     const res = await request(app)
       .get('/api/products/admin')
       .set('Cookie', cookie)
-    expect(res.status).toBe(403)
+    expect(res.status).toBe(200)
   })
 
   it('returns active and inactive products for admin', async () => {
@@ -43,20 +43,19 @@ describe('GET /api/products/admin', () => {
 })
 
 describe('GET /api/products/admin/:id', () => {
-  it('returns 401 without auth', async () => {
-    const res = await request(app).get(
-      '/api/products/admin/00000000-0000-0000-0000-000000000000'
-    )
-    expect(res.status).toBe(401)
+  it('is public for the read-only admin demo', async () => {
+    const { product } = await createVariant()
+    const res = await request(app).get(`/api/products/admin/${product.id}`)
+    expect(res.status).toBe(200)
   })
 
-  it('returns 403 for non-admin users', async () => {
+  it('is readable by customers for the read-only admin demo', async () => {
     const { cookie } = await loggedInUser({ role: 'CUSTOMER' })
     const { product } = await createVariant()
     const res = await request(app)
       .get(`/api/products/admin/${product.id}`)
       .set('Cookie', cookie)
-    expect(res.status).toBe(403)
+    expect(res.status).toBe(200)
   })
 
   it('returns 404 when the product id does not exist', async () => {
