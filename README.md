@@ -1,23 +1,15 @@
-# C-Store 🛍️
+# C-Store
+
+**Live demo: [cstore.ahmedgamal.website](https://cstore.ahmedgamal.website)** — the
+[admin dashboard](https://cstore.ahmedgamal.website/admin)
 
 A **production-ready** e-commerce platform for a premium fashion store — full shopping flow (catalog, variants,
 cart, checkout, payments, orders) plus an admin dashboard. Built as a TypeScript monorepo with production concerns
 baked in: secure auth, concurrency-safe orders, idempotent payments, automated CI/CD, and off-site backups.
 
-🔗 **Repo:** [github.com/AhmedGamall1/C-store](https://github.com/AhmedGamall1/C-store)
-
-![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
-![React](https://img.shields.io/badge/React_19-20232A?logo=react&logoColor=61DAFB)
-![Node.js](https://img.shields.io/badge/Node.js-5FA04E?logo=nodedotjs&logoColor=white)
-![Express](https://img.shields.io/badge/Express_5-000000?logo=express&logoColor=white)
-![Prisma](https://img.shields.io/badge/Prisma-2D3748?logo=prisma&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
-![Redis](https://img.shields.io/badge/Redis-FF4438?logo=redis&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
-
 ---
 
-## ✨ Features
+## Features
 
 - **Catalog with variants** — products → colours → sizes, where each size is the real SKU that carries stock.
 - **Cart** — works for guests (local) and logged-in users (persisted), with cart merge on login.
@@ -26,34 +18,35 @@ baked in: secure auth, concurrency-safe orders, idempotent payments, automated C
 - **Concurrency-safe inventory** — race-safe stock decrement, stock reservation, and an auto-expiry job.
 - **Payments** — Paymob iframe + **HMAC-verified, idempotent** webhook; failed payments restock automatically.
 - **Auth** — short access token + **rotating refresh token** (reuse detection), email verification, password reset, RBAC.
-- **Admin dashboard** — manage categories, products, variants, stock, and orders.
+- **Admin dashboard** — manage categories, products, variants, stock, and orders; public read-only demo with personal data masked.
 - **Image uploads** — product images served via Cloudinary CDN.
 - **Hardened** — Helmet, Zod validation, distributed (Redis) rate limiting, nightly off-site DB backups.
 
 ---
 
-## 🧱 Tech stack
+## Tech stack
 
-| Layer | Technology |
-|---|---|
-| **Frontend** | React 19, Vite, React Router 7, TanStack Query, React Hook Form, Zod, Tailwind, Radix UI |
-| **Backend** | Node.js, Express 5, TypeScript, Prisma 7, Zod |
-| **Data** | PostgreSQL, Redis |
-| **Infra** | Docker, Docker Compose, Caddy, Cloudflare, GitHub Actions, GHCR, Backblaze B2 |
-| **Integrations** | Paymob (payments), Cloudinary (images), Gmail SMTP (email) |
-| **Testing** | Vitest, Supertest |
+| Layer            | Technology                                                                               |
+| ---------------- | ---------------------------------------------------------------------------------------- |
+| **Frontend**     | React 19, Vite, React Router 7, TanStack Query, React Hook Form, Zod, Tailwind, Radix UI |
+| **Backend**      | Node.js, Express 5, TypeScript, Prisma 7, Zod                                            |
+| **Data**         | PostgreSQL, Redis                                                                        |
+| **Infra**        | AWS EC2, Docker Compose, Caddy, Cloudflare Tunnel, GitHub Actions, GHCR, Backblaze B2    |
+| **Integrations** | Paymob (payments), Cloudinary (images), Gmail SMTP (email)                               |
+| **Testing**      | Vitest, Supertest                                                                        |
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ![System architecture](docs/architecture.png)
 
-C-Store is a **monolith** deployed as Docker containers on a single Linux VPS. Cloudflare provides the CDN and
-TLS edge; Caddy is the reverse proxy; the Express API owns the business logic; PostgreSQL is the source of truth;
-and Redis holds all ephemeral state (sessions, tokens, idempotency keys, rate-limit counters).
+C-Store is a **monolith** that runs as Docker containers on an **AWS EC2** (ARM64) server. Traffic reaches it only
+through a **Cloudflare Tunnel**, so the server has no public web ports; Cloudflare handles DNS, HTTPS, and the
+firewall. Caddy serves the React app and proxies `/api`; the Express API owns the business logic; PostgreSQL is
+the source of truth; and Redis holds all ephemeral state (sessions, tokens, idempotency keys, rate-limit counters).
 
-📄 Full write-up: **[docs/architecture.md](docs/architecture.md)**
+---
 
 ### Design pattern — Layered architecture
 
@@ -69,24 +62,13 @@ Route  →  Controller  →  Service  →  Repository  →  Database
 - **Service** — the business logic and rules.
 - **Repository** — the only layer that talks to the database (via Prisma).
 
-**Why:** each layer has a single responsibility, which makes the code easy to **test** (services without HTTP),
-**change** (swap data access without touching logic), and **reuse** (a background job and a controller call the
-same service).
-
 ---
 
-## 🗄️ Database
-
-![ERD](docs/erd.png)
-
-Source (dbdiagram.io DBML): **[docs/erd.dbml](docs/erd.dbml)**
-
----
-
-## 📁 Project structure
+## Project structure
 
 ```
 .
+├── .github/workflows/ # CI + manual deploy
 ├── apps/
 │   ├── client/        # React + Vite storefront and admin dashboard
 │   └── server/        # Express + Prisma REST API
@@ -101,9 +83,9 @@ The API is organized by layer: `routes/ · controllers/ · services/ · reposito
 
 ---
 
-## 🚀 Getting started (local)
+## Getting started (local)
 
-**Prerequisites:** Node.js 20+, Docker.
+**Prerequisites:** Node.js 22, Docker.
 
 ```bash
 # 1. Clone
@@ -133,37 +115,36 @@ npm run dev
 
 ---
 
-## 📜 Scripts
+## Scripts
 
-| Command | Description |
-|---|---|
-| `npm run dev` | Run client + server in watch mode |
-| `npm test` | Run the server test suite (Vitest) |
-| `npm run lint` | Lint the codebase |
-| `npm run db:migrate -w apps/server` | Apply database migrations |
-| `npm run db:studio -w apps/server` | Open Prisma Studio |
+| Command                             | Description                        |
+| ----------------------------------- | ---------------------------------- |
+| `npm run dev`                       | Run client + server in watch mode  |
+| `npm test`                          | Run the server test suite (Vitest) |
+| `npm run lint -w apps/server`       | Lint the server                    |
+| `npm run db:migrate -w apps/server` | Apply database migrations          |
+| `npm run db:studio -w apps/server`  | Open Prisma Studio                 |
 
 ---
 
-## 🧪 Testing
+## Testing
 
-Integration and unit tests with **Vitest + Supertest** cover the main flows — auth, cart, orders, products,
-addresses, and the Paymob webhook — running against a disposable test database.
+**203** integration and unit tests with **Vitest + Supertest** cover the main flows — auth, cart, orders,
+products, addresses, and the Paymob webhook — running against a disposable test database. CI runs them on every push.
 
 ```bash
+cp .env.test.example .env.test       # test settings, no real secrets
+npm run test:db:up -w apps/server    # start the throwaway test database
 npm test
 ```
 
 ---
 
-## 📦 Deployment
+## Deployment
 
-The project is configured for production deployment: **GitHub Actions** builds the client and server Docker images
-→ pushes them to **GHCR** → SSHes into the VPS and runs `docker compose pull && up -d`. It is set up to run behind
-**Caddy** (automatic HTTPS) with **Cloudflare** in front, with nightly PostgreSQL backups to **Backblaze B2**.
-
----
-
-## 👤 Author
-
-**Ahmed Gamal** — [GitHub](https://github.com/AhmedGamall1)
+- **CI** — every push runs lint, typecheck, and the test suite against Postgres, then builds **ARM64** Docker images
+  and pushes them to **GHCR**, tagged by commit SHA.
+- **Deploy** — manual, from a GitHub Actions button. It SSHes in with a key that can only run the deploy script,
+  which pulls that exact commit's images, applies migrations on start, and health-checks the live site.
+- **Hosting** — **AWS EC2** (ARM64) behind a **Cloudflare Tunnel**; the security group allows SSH only.
+- **Backups** — nightly `pg_dump` to **Backblaze B2** with 14-day retention; restores are tested into a scratch database.

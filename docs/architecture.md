@@ -4,8 +4,8 @@ C-Store is a production e-commerce platform for a premium fashion store in Egypt
 shopping flow — catalog with product variants, cart (guest **and** logged-in), checkout with cash-on-delivery
 and online card payments, the order lifecycle, and an admin dashboard for products, inventory, and orders.
 
-It is built as a TypeScript monorepo and deployed as Docker containers on a **single Linux VPS**, behind a
-Caddy reverse proxy and a Cloudflare CDN.
+It is built as a TypeScript monorepo and deployed as Docker containers on an **AWS EC2** (ARM64) server, reachable
+only through a **Cloudflare Tunnel**. Live at [cstore.ahmedgamal.website](https://cstore.ahmedgamal.website).
 
 ![System architecture](architecture.png)
 
@@ -18,7 +18,7 @@ Caddy reverse proxy and a Cloudflare CDN.
 | **Frontend** | React 19, Vite, React Router 7, TanStack Query, React Hook Form, Zod, Tailwind, Radix UI |
 | **Backend** | Node.js, Express 5, TypeScript, Prisma 7, Zod |
 | **Data** | PostgreSQL, Redis |
-| **Infra** | Docker, Docker Compose, Caddy, Cloudflare, GitHub Actions, GHCR, Backblaze B2 |
+| **Infra** | AWS EC2, Docker Compose, Caddy, Cloudflare Tunnel, GitHub Actions, GHCR, Backblaze B2 |
 | **Integrations** | Paymob (payments), Cloudinary (images), Gmail SMTP (email) |
 | **Testing** | Vitest, Supertest |
 
@@ -47,8 +47,9 @@ Caddy reverse proxy and a Cloudflare CDN.
 
 | Component | Role | Why this choice |
 |---|---|---|
-| **Cloudflare** | CDN, TLS at the edge, DDoS protection | Free, global edge; offloads static delivery and shields the origin |
-| **Caddy** | Reverse proxy; automatic HTTPS; routes `/` → web and `/api` → API | Auto-renewing certs with near-zero config |
+| **Cloudflare** | DNS, HTTPS at the edge, firewall, rate limiting, DDoS protection | Free, global edge that shields the origin |
+| **Cloudflare Tunnel** | Outbound-only connection from the server to Cloudflare | The server needs no public web ports; only SSH is open |
+| **Caddy** | Serves the React build; routes `/api` → API; passes the real client IP | Tiny config, plain HTTP behind the tunnel |
 | **Web (React SPA)** | Storefront **and** admin dashboard; static build served by Caddy | SPA + TanStack Query for a fast, cached client |
 | **API (Express/Node)** | REST API, business logic, auth, orders; in-process **stock-expiry job** | Simple, well-understood, fast to ship |
 | **PostgreSQL** | Source of truth (users, products, orders…) via Prisma | Relational integrity + transactions for money/stock |
@@ -88,6 +89,13 @@ The API itself is layered: **routes → controllers (HTTP) → services (busines
 ### 4.5 Backups
 - A host cron streams `pg_dump` from the Postgres container, gzips it, and uploads to **Backblaze B2** via `rclone`,
   pruning both local and remote copies older than 14 days.
+- Restores are tested by loading the latest backup into a scratch database.
+
+### 4.6 Deployment
+- Every push runs CI: lint, typecheck, and the test suite against Postgres, then **ARM64** images are pushed to
+  **GHCR**, tagged by commit SHA.
+- Production deploys are **manual** (a GitHub Actions button). The workflow SSHes in with a key that can only run the
+  deploy script, which pulls that commit's images, restarts the stack (migrations run on start), and health-checks the site.
 
 ---
 
@@ -105,7 +113,7 @@ is documented separately:
 
 - **Monolith, not microservices.** One deployable is simpler to build, test, and operate at this scale. The code is
   still cleanly layered, so logic can be extracted later if needed.
-- **Single VPS + Docker Compose, not Kubernetes.** Cheaper and far simpler to run for current traffic. The app is
+- **One EC2 server + Docker Compose, not Kubernetes.** Cheaper and far simpler to run for current traffic. The app is
   **stateless** (sessions, rate limits, and idempotency live in Redis), so it is *ready* to scale horizontally.
 - **JWT access + refresh rotation, not a single long-lived JWT.** Enables real logout, revocation, and theft detection.
 - **Redis as a multi-purpose store.** Sessions, tokens, idempotency, and rate limits share one fast store with TTLs.
@@ -130,6 +138,8 @@ If traffic grew, the next steps would be:
 - `helmet`, CORS allow-list, body-size limits, and **Zod** validation on all inputs.
 - Auth in `httpOnly` cookies; **bcrypt** password hashing; **hashed, single-use** email/reset tokens.
 - **HMAC-verified** payment webhooks; idempotent, concurrency-safe order updates.
+- The public read-only admin demo **masks personal data** (names, emails, phones, streets) unless the viewer is an admin.
+- No public web ports on the server (Cloudflare Tunnel); deploy key restricted to a single script.
 - **Distributed rate limiting** on the API, with a stricter limit on auth endpoints.
 - Stack traces hidden in production; **health-check** endpoint; **graceful shutdown** (drains requests, closes DB/Redis).
 - Nightly **off-site backups** with retention.
