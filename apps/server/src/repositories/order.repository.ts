@@ -3,11 +3,6 @@ import prisma from '../config/database.js'
 import type { DbClient } from './transaction.js'
 
 const orderInclude = {
-  items: true,
-  address: true,
-} satisfies Prisma.OrderInclude
-
-const adminOrderInclude = {
   items: {
     include: {
       productSize: {
@@ -24,6 +19,10 @@ const adminOrderInclude = {
     },
   },
   address: true,
+} satisfies Prisma.OrderInclude
+
+const adminOrderInclude = {
+  ...orderInclude,
   user: {
     select: {
       id: true,

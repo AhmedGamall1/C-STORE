@@ -25,7 +25,6 @@ type AdminOrder = NonNullable<
   Awaited<ReturnType<typeof orderRepo.findByIdAdmin>>
 >
 
-// Admin reads are public for the demo, so only real admins see who ordered.
 const hidePersonalData = (order: AdminOrder): AdminOrder => ({
   ...order,
   guestName: maskName(order.guestName),
@@ -290,7 +289,6 @@ const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   CANCELLED: [],
 }
 
-// Without personal data, search only by order number so it can't confirm who ordered.
 const buildAdminWhere = (
   query: ListOrdersAdminQuery,
   revealPersonal: boolean

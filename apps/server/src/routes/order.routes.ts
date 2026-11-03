@@ -43,8 +43,6 @@ router.get(
   getPaymentStatus
 )
 
-// Admin reads are public on purpose for the read-only admin demo.
-// Personal data is masked unless the viewer is a real admin.
 router.get(
   '/admin',
   optionalAuth,
