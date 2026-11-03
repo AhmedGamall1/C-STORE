@@ -186,24 +186,37 @@ export default function OrderDetailPage() {
           Items
         </h3>
         <ul className="mt-4 divide-y">
-          {order.items.map((item) => (
-            <li key={item.id} className="flex gap-4 py-4 first:pt-0">
-              <div
-                className="h-20 w-16 shrink-0 rounded-md border"
-                style={{ backgroundColor: item.colorHex || '#f4f4f4' }}
-                aria-hidden
-              />
-              <div className="flex-1">
-                <p className="font-medium">{item.colorName}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Size {item.size} · Qty {item.quantity}
+          {order.items.map((item) => {
+            const product = item.productSize?.color?.product
+            const imageUrl = item.productSize?.color?.imageUrl
+            return (
+              <li key={item.id} className="flex gap-4 py-4 first:pt-0">
+                <div
+                  className="h-20 w-16 shrink-0 overflow-hidden rounded-md border"
+                  style={{ backgroundColor: item.colorHex || '#f4f4f4' }}
+                >
+                  {imageUrl ? (
+                    <img
+                      src={imageUrl}
+                      alt={product?.name ?? item.colorName}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : null}
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium">
+                    {product?.name ?? item.colorName}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {item.colorName} · Size {item.size} · Qty {item.quantity}
+                  </p>
+                </div>
+                <p className="text-sm font-semibold tabular">
+                  {formatEGP(Number(item.price) * item.quantity)}
                 </p>
-              </div>
-              <p className="text-sm font-semibold tabular">
-                {formatEGP(Number(item.price) * item.quantity)}
-              </p>
-            </li>
-          ))}
+              </li>
+            )
+          })}
         </ul>
       </section>
 

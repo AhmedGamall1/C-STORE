@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router'
+import { NavLink, useNavigate } from 'react-router'
 import {
   LayoutDashboard,
   Package,
@@ -7,8 +7,10 @@ import {
   LogOut,
   ArrowLeft,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { Logo } from '@/components/common/Logo'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/providers/AuthProvider'
 
 const NAV = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -18,6 +20,17 @@ const NAV = [
 ]
 
 export function AdminSidebar({ onNavigate }) {
+  const navigate = useNavigate()
+  const { isAuthenticated, logout } = useAuth()
+
+  const onSignOut = () =>
+    logout()
+      .then(() => {
+        toast.success('Signed out')
+        navigate('/', { replace: true })
+      })
+      .catch(() => undefined)
+
   return (
     <aside className="flex h-full flex-col gap-6 border-r bg-background p-6">
       <Logo />
@@ -55,13 +68,16 @@ export function AdminSidebar({ onNavigate }) {
           <ArrowLeft className="h-4 w-4" />
           Back to store
         </NavLink>
-        <button
-          type="button"
-          className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
-        >
-          <LogOut className="h-4 w-4" />
-          Sign out
-        </button>
+        {isAuthenticated ? (
+          <button
+            type="button"
+            onClick={onSignOut}
+            className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign out
+          </button>
+        ) : null}
       </div>
     </aside>
   )

@@ -107,6 +107,13 @@ export interface OrderItem {
   size: string
   colorName: string
   colorHex: string | null
+  productSize?: {
+    id: string
+    color: {
+      imageUrl: string
+      product: { id: string; name: string; slug: string }
+    }
+  } | null
 }
 
 export interface Order {

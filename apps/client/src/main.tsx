@@ -13,7 +13,8 @@ createRoot(document.getElementById('root')).render(
       <AuthProvider>
         <RouterProvider router={router} />
         <Toaster
-          position="top-right"
+          position="top-center"
+          duration={2500}
           richColors
           closeButton
           toastOptions={{
