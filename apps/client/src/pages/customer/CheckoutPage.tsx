@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
+  Copy,
   CreditCard,
   Loader2,
   Lock,
@@ -51,6 +52,13 @@ import { cn, formatEGP } from '@/lib/utils'
 const STEPS = ['Details', 'Payment', 'Review']
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+const TEST_CARD = {
+  number: '5123 4567 8901 2346',
+  name: 'Test Account',
+  expiry: '01/39',
+  cvv: '123',
+}
 
 const govSlug = (name) =>
   name
@@ -709,7 +717,55 @@ function PaymentStep({ value, onChange }) {
           desc="Visa, Mastercard, Meeza — secure online payment."
         />
       </div>
+      {value === 'PAYMOB' ? <TestCardNotice /> : null}
     </section>
+  )
+}
+
+function TestCardNotice() {
+  const copyNumber = () =>
+    navigator.clipboard
+      .writeText(TEST_CARD.number.replace(/\s/g, ''))
+      .then(() => toast.success('Card number copied'))
+      .catch(() => toast.error('Could not copy. Please type the number.'))
+
+  return (
+    <div className="mt-4 rounded-md bg-secondary/60 p-4 text-sm">
+      <p className="font-medium">Test mode — no real money is charged.</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Use this test card on the Paymob page.
+      </p>
+      <dl className="mt-3 space-y-1.5">
+        <div className="flex items-center justify-between gap-3">
+          <dt className="text-muted-foreground">Card</dt>
+          <dd className="flex items-center gap-1 whitespace-nowrap font-medium tabular">
+            {TEST_CARD.number}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              aria-label="Copy card number"
+              onClick={copyNumber}
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </Button>
+          </dd>
+        </div>
+        <TestCardRow label="Name" value={TEST_CARD.name} />
+        <TestCardRow label="Expiry" value={TEST_CARD.expiry} />
+        <TestCardRow label="CVV" value={TEST_CARD.cvv} />
+      </dl>
+    </div>
+  )
+}
+
+function TestCardRow({ label, value }) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="font-medium tabular">{value}</dd>
+    </div>
   )
 }
 
@@ -819,6 +875,7 @@ function ReviewStep({
             ? 'Paymob (online card)'
             : 'Cash on Delivery'}
         </p>
+        {paymentMethod === 'PAYMOB' ? <TestCardNotice /> : null}
       </ReviewSection>
 
       <ReviewSection title="Order notes (optional)">
